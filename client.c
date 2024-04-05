@@ -21,13 +21,19 @@ bool lecture(int dS){
         printf("%s\n",msg);
     }
     free(msg);
-    return false
+    return false;
 }
 
-void envoie(int dS){
+bool envoie(int dS){
+    bool res = true;
     char* msg = malloc(128*sizeof(char*));
     fgets(msg,128,stdin);
-    send(dS, msg, (strlen(m)+1)*sizeof(char*) , 0) ;
+    if(msg == "fin"){
+        res = false;
+    }
+    else {
+        send(dS, msg, (strlen(m)+1)*sizeof(char*) , 0) ;
+    }
     free(msg);
 }
 
@@ -52,8 +58,13 @@ int main(int argc, char* argv[]){
         bool continu = true;
 
         while(continu){
-            envoie(dS);
-            lecture(dS); 
+            if pos = 1 {
+                continu = envoie(dS);
+            }
+            else {
+                continu = lecture(dS); 
+            }
+            pos = (pos+1)%2
         }
 
         fin(dS);
