@@ -1,3 +1,35 @@
+void fin(int dS) {
+    shutdown(dS,2) ;
+    printf("fermeture");
+}
+
+bool lecture(int dS){
+    bool res = true;
+    char* msg = malloc(128*sizeof(char*));
+    recv(dS, msg, (strlen(msg)+1)*sizeof(char*), 0) ;
+    if(msg == "fin"){
+        res = false;
+    }
+    else {
+        printf("%s\n",msg);
+    }
+    free(msg);
+    return false;
+}
+
+bool envoie(int dS){
+    bool res = true;
+    char* msg = malloc(128*sizeof(char*));
+    fgets(msg,128,stdin);
+    if(msg == "fin"){
+        res = false;
+    }
+    else {
+        send(dS, msg, (strlen(m)+1)*sizeof(char*) , 0) ;
+    }
+    free(msg);
+}
+
 int main(int argc, char *argv[]) {
   
     printf("Début programme\n");
@@ -21,20 +53,34 @@ int main(int argc, char *argv[]) {
     int dSC1 = accept(dS, (struct sockaddr*) &aC,&lg1) ;
     printf("Client 1 Connecté\n");
 
-        struct sockaddr_in aC ;
+    struct sockaddr_in aC ;
     socklen_t lg2 = sizeof(struct sockaddr_in) ;
     int dSC2 = accept(dS, (struct sockaddr*) &aC,&lg2) ;
     printf("Client 2 Connecté\n");
 
-    char msg [20] ;
-    recv(dSC, msg, sizeof(msg), 0) ;
-    printf("Message reçu : %s\n", msg) ;
-    
-    int r = 10 ;
-    
-    send(dSC, &r, sizeof(int), 0) ;
-    printf("Message Envoyé\n");
-    shutdown(dSC, 2) ; 
-    shutdown(dS, 2) ;
+    int r1 = 0;
+    int r2 = 1;
+
+    send(dS, &r1, sizeof(int) , 0) ;
+
+    send(dS, &r2, sizeof(int), 0) ;
+
+    int* tabdSC = malloc(2*sizeof(int));
+    tabdSC[0] = dSC1;
+    tabdSC[1] = dSC2; 
+
+    int pos = 0;
+
+    while(continu){
+        if pos = 0 {
+            lecture(tabdSC[0]);
+            envoie(tabdSC[1]);
+        }
+        else {
+            lecture(tabdSC[1]);
+            envoie(tabdSC[0]);
+        }
+        pos = (pos+1)%2
+    }
     printf("Fin du programme");
 }
