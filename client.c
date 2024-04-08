@@ -19,10 +19,10 @@ bool lecture(int dS){
         res = false;
     }
     else {
-        printf("%s\n",msg);
+        printf("L'autre utilisateur dit : %s\n",msg);
     }
     free(msg);
-    return false;
+    return res;
 }
 
 bool envoie(int dS){
@@ -36,6 +36,7 @@ bool envoie(int dS){
         send(dS, msg, (strlen(msg)+1)*sizeof(char*) , 0) ;
     }
     free(msg);
+    return res;
 }
 
 int main(int argc, char* argv[]){
@@ -60,6 +61,7 @@ int main(int argc, char* argv[]){
         int pos;
 
         recv(dS, &pos, sizeof(int), 0);
+        printf("pos = %d\n", pos);
 
         while(continu){
             if (pos == 1) {

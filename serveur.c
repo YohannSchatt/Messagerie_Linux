@@ -53,8 +53,7 @@ int main(int argc, char *argv[]) {
     ad.sin_port = htons(atoi(argv[1])) ;
     bind(dS, (struct sockaddr*)&ad, sizeof(ad)) ;
     printf("Socket Nommé\n");
-#include <stdbool.h>
-    listen(dS, 7) ;
+    listen(dS, 7);
     printf("Mode écoute\n");
 
     struct sockaddr_in aC ;
@@ -62,16 +61,19 @@ int main(int argc, char *argv[]) {
     int dSC1 = accept(dS, (struct sockaddr*) &aC,&lg1) ;
     printf("Client 1 Connecté\n");
 
+    struct sockaddr_in aB ;
     socklen_t lg2 = sizeof(struct sockaddr_in) ;
-    int dSC2 = accept(dS, (struct sockaddr*) &aC,&lg2) ;
+    int dSC2 = accept(dS, (struct sockaddr*) &aB,&lg2) ;
     printf("Client 2 Connecté\n");
 
     int r1 = 0;
     int r2 = 1;
 
-    send(dS, &r1, sizeof(int) , 0) ;
+    printf("r1\n");
+    send(dSC1, &r1, sizeof(int), 0) ;
 
-    send(dS, &r2, sizeof(int), 0) ;
+    printf("r2\n");
+    send(dSC2, &r2, sizeof(int), 0) ;
 
     int* tabdSC = malloc(2*sizeof(int));
     tabdSC[0] = dSC1;
@@ -80,7 +82,10 @@ int main(int argc, char *argv[]) {
     bool continu = true;
     int pos = 0;
 
+    printf("%d\n",continu);
+
     while(continu){
+        printf("coucou\n");
         if (pos == 0) {
             lecture(tabdSC[0]);
             envoie(tabdSC[1]);
