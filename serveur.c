@@ -1,3 +1,11 @@
+#include <stdio.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdbool.h>
+
 void fin(int dS) {
     shutdown(dS,2) ;
     printf("fermeture");
@@ -14,7 +22,7 @@ bool lecture(int dS){
         printf("%s\n",msg);
     }
     free(msg);
-    return false;
+    return res;
 }
 
 bool envoie(int dS){
@@ -25,9 +33,10 @@ bool envoie(int dS){
         res = false;
     }
     else {
-        send(dS, msg, (strlen(m)+1)*sizeof(char*) , 0) ;
+        send(dS, msg, (strlen(msg)+1)*sizeof(char*) , 0) ;
     }
     free(msg);
+    return res;
 }
 
 int main(int argc, char *argv[]) {
@@ -44,7 +53,7 @@ int main(int argc, char *argv[]) {
     ad.sin_port = htons(atoi(argv[1])) ;
     bind(dS, (struct sockaddr*)&ad, sizeof(ad)) ;
     printf("Socket Nommé\n");
-
+#include <stdbool.h>
     listen(dS, 7) ;
     printf("Mode écoute\n");
 
@@ -53,7 +62,6 @@ int main(int argc, char *argv[]) {
     int dSC1 = accept(dS, (struct sockaddr*) &aC,&lg1) ;
     printf("Client 1 Connecté\n");
 
-    struct sockaddr_in aC ;
     socklen_t lg2 = sizeof(struct sockaddr_in) ;
     int dSC2 = accept(dS, (struct sockaddr*) &aC,&lg2) ;
     printf("Client 2 Connecté\n");
@@ -69,10 +77,11 @@ int main(int argc, char *argv[]) {
     tabdSC[0] = dSC1;
     tabdSC[1] = dSC2; 
 
+    bool continu = true;
     int pos = 0;
 
     while(continu){
-        if pos = 0 {
+        if (pos == 0) {
             lecture(tabdSC[0]);
             envoie(tabdSC[1]);
         }
@@ -80,7 +89,9 @@ int main(int argc, char *argv[]) {
             lecture(tabdSC[1]);
             envoie(tabdSC[0]);
         }
-        pos = (pos+1)%2
+        pos = (pos+1)%2;
     }
+    fin(tabdSC[0]);
+    fin(tabdSC[1]);
     printf("Fin du programme");
 }

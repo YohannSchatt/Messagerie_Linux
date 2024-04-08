@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 void fin(int dS) {
     shutdown(dS,2) ;
@@ -32,7 +33,7 @@ bool envoie(int dS){
         res = false;
     }
     else {
-        send(dS, msg, (strlen(m)+1)*sizeof(char*) , 0) ;
+        send(dS, msg, (strlen(msg)+1)*sizeof(char*) , 0) ;
     }
     free(msg);
 }
@@ -40,7 +41,7 @@ bool envoie(int dS){
 int main(int argc, char* argv[]){
 
     if (argc != 3) {
-        printf("./client IP Port")
+        printf("./client IP Port");
     }
     else{
         printf("Début programme\n");
@@ -56,15 +57,18 @@ int main(int argc, char* argv[]){
         printf("Socket Connecté\n");
 
         bool continu = true;
+        int pos;
+
+        recv(dS, &pos, sizeof(int), 0);
 
         while(continu){
-            if pos = 1 {
+            if (pos == 1) {
                 continu = envoie(dS);
             }
             else {
                 continu = lecture(dS); 
             }
-            pos = (pos+1)%2
+            pos = (pos+1)%2;
         }
 
         fin(dS);
