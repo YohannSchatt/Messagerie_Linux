@@ -6,15 +6,15 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-void fin(int dSC) {
-    shutdown(dSC,2) ;
+void fin(int dS) {
+    shutdown(dS,2) ;
     printf("Fin du programme");
 }
 
-bool lecture(int dSC){
+bool lecture(int dS){
     bool res = true;
     char* msg = malloc(128*sizeof(char));
-    recv(dSC, msg, (strlen(msg)+1)*sizeof(char), 0) ;
+    recv(dS, msg, (strlen(msg)+1)*sizeof(char), 0) ;
     if(msg == "fin"){
         res = false;
     }
@@ -25,7 +25,7 @@ bool lecture(int dSC){
     return res;
 }
 
-bool envoie(int dSC){
+bool envoie(int dS){
     bool res = true;
     char* msg = malloc(128*sizeof(char));
     printf("Ecrit un message : ");
@@ -34,7 +34,7 @@ bool envoie(int dSC){
         res = false;
     }
     else {
-        send(dSC, msg, (strlen(msg)+1)*sizeof(char) , 0) ;
+        send(dS, msg, (strlen(msg)+1)*sizeof(char) , 0) ;
     }
     free(msg);
     return res;

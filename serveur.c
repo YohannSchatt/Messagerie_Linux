@@ -13,8 +13,8 @@ void fin(int dS) {
 
 bool lecture(int dS){
     bool res = true;
-    char* msg = malloc(128*sizeof(char*));
-    recv(dS, msg, (strlen(msg)+1)*sizeof(char*), 0) ;
+    char* msg = malloc(128*sizeof(char));
+    recv(dS, msg, (strlen(msg)+1)*sizeof(char), 0) ;
     if(msg == "fin"){
         res = false;
     }
