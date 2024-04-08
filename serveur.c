@@ -6,15 +6,15 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-void fin(int dS) {
-    shutdown(dS,2) ;
+void fin(int dSC) {
+    shutdown(dSC,2) ;
     printf("fermeture");
 }
 
-bool lecture(int dS){
+bool lecture(int dSC){
     bool res = true;
     char* msg = malloc(128*sizeof(char));
-    recv(dS, msg, (strlen(msg)+1)*sizeof(char), 0) ;
+    recv(dSC, msg, (strlen(msg)+1)*sizeof(char), 0) ;
     if(msg == "fin"){
         res = false;
     }
@@ -25,7 +25,7 @@ bool lecture(int dS){
     return res;
 }
 
-bool envoie(int dS){
+bool envoie(int dSC){
     bool res = true;
     char* msg = malloc(128*sizeof(char));
     fgets(msg,128,stdin);
@@ -33,7 +33,7 @@ bool envoie(int dS){
         res = false;
     }
     else {
-        send(dS, msg, (strlen(msg)+1)*sizeof(char) , 0) ;
+        send(dSC, msg, (strlen(msg)+1)*sizeof(char) , 0) ;
     }
     free(msg);
     return res;
