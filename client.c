@@ -28,6 +28,7 @@ bool lecture(int dS){
 bool envoie(int dS){
     bool res = true;
     char* msg = malloc(128*sizeof(char*));
+    printf("Ecrit un message : ");
     fgets(msg,128,stdin);
     if(msg == "fin"){
         res = false;
@@ -72,7 +73,6 @@ int main(int argc, char* argv[]){
             }
             pos = (pos+1)%2;
         }
-
         fin(dS);
     }
 }

@@ -85,15 +85,10 @@ int main(int argc, char *argv[]) {
     printf("%d\n",continu);
 
     while(continu){
-        printf("coucou\n");
-        if (pos == 0) {
-            lecture(tabdSC[0]);
-            envoie(tabdSC[1]);
-        }
-        else {
-            lecture(tabdSC[1]);
-            envoie(tabdSC[0]);
-        }
+        printf("je lis\n");
+        lecture(tabdSC[pos]);
+        printf("j'envoie\n");
+        envoie(tabdSC[(pos+1)%2]);
         pos = (pos+1)%2;
     }
     fin(tabdSC[0]);
