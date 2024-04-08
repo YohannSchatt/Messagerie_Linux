@@ -27,13 +27,13 @@ bool lecture(int dS){
 
 bool envoie(int dS){
     bool res = true;
-    char* msg = malloc(128*sizeof(char*));
+    char* msg = malloc(128*sizeof(char));
     fgets(msg,128,stdin);
     if(msg == "fin"){
         res = false;
     }
     else {
-        send(dS, msg, (strlen(msg)+1)*sizeof(char*) , 0) ;
+        send(dS, msg, (strlen(msg)+1)*sizeof(char) , 0) ;
     }
     free(msg);
     return res;
