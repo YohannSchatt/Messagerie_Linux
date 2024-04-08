@@ -14,7 +14,9 @@ void fin(int dSC) {
 bool lecture(int dSC){
     bool res = true;
     char* msg = malloc(128*sizeof(char));
+    printf("je suis devant le receive");
     recv(dSC, msg, (strlen(msg)+1)*sizeof(char), 0) ;
+    printf("j'ai passé le receive\n");
     if(msg == "fin"){
         res = false;
     }
