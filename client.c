@@ -34,7 +34,7 @@ bool envoie(int dS){
         res = false;
     }
     else {
-        send(dS, msg, (strlen(msg)+1)*sizeof(char) , 0) ;
+        send(dS, msg, (strlen(msg)+1)*sizeof(char) , 0);
     }
     free(msg);
     return res;

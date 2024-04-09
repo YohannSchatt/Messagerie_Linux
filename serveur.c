@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
     tabdSC[1] = dSC2; 
 
     bool continu = true;
-    int pos = 0;
+    int pos = 1;
 
     printf("%d\n",continu);
 
