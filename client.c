@@ -29,6 +29,8 @@ bool envoie(int dS, char** msg){
     bool res = true;
     printf("Ecrit un message : ");
     fgets(*msg,128,stdin);
+    char *pos = strchr(*msg,'\n');
+    *pos = '\0';
     if(*msg == "fin\0"){
         res = false;
     }
