@@ -101,9 +101,6 @@ int main(int argc, char* argv[]){
         args_recept->continu = continu;
         args_recept->msg = msg_envoie;
 
-        void* arg_recept = (dS,&continu,msg_lecture);
-        void* arg_envoie = (dS,&continu,msg_lecture);
-
         pthread_create(&th_recept, NULL, reception, args_recept);
 
         pthread_create(&th_envoie,NULL, propagation, args_envoie);
