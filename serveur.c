@@ -28,7 +28,7 @@ bool lecture(int dSC,char **msg){
 
 bool envoie(int dSC,char** msg){
     bool res = true;
-    if(*msg == "fin\0"){
+    if(*msg == "fin"){
         res = false;
     }
     else {
@@ -67,6 +67,7 @@ int main(int argc, char *argv[]) {
     int r1 = 0;
     int r2 = 1;
 
+
     printf("r1\n");
     send(dSC1, &r1, sizeof(int), 0) ;
 
@@ -81,6 +82,8 @@ int main(int argc, char *argv[]) {
     int pos = 1;
 
     char* msg = malloc(128*sizeof(char));
+
+    shutdown(dS,2); //on ferme le socket de demande de connection car inutile
 
     printf("%d\n",continu);
 

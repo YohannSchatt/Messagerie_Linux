@@ -15,7 +15,7 @@ void fin(int dS,char** msg) {
 bool lecture(int dS, char** msg){
     bool res = true;
     recv(dS, *msg,128+1, 0) ;
-    if(*msg == "fin\0"){
+    if(*msg == "fin"){
         res = false;
     }
     else {
@@ -29,7 +29,7 @@ bool envoie(int dS, char** msg){
     printf("Ecrit un message : ");
     fgets(*msg,128,stdin);
     printf("Message compris : %s", *msg);
-    if(*msg == "fin\0"){
+    if(*msg == "fin"){
         res = false;
     }
     else {
