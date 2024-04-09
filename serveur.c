@@ -24,12 +24,10 @@ bool lecture(int dSC,char **msg){
     return res;
 }
 
-bool envoie(int dSC,char** msg){
-    bool res = true;
+void envoie(int dSC,char** msg){
     int taille = strlen(*msg)+1;
     send(dSC, &taille, sizeof(int), 0);
     send(dSC, *msg, taille , 0);
-    return res;
 }
 
 int main(int argc, char *argv[]) {
