@@ -17,7 +17,7 @@ bool lecture(int dSC,char **msg){
     int taille;
     recv(dSC,&taille, sizeof(int), 0);
     recv(dSC, *msg, taille, 0);
-    if(*msg == "fin"){
+    if((strcmp(*msg,"fin") == 0)){
         res = false;
     }
     printf("%s\n",*msg);
@@ -26,9 +26,6 @@ bool lecture(int dSC,char **msg){
 
 bool envoie(int dSC,char** msg){
     bool res = true;
-    if(*msg == "fin"){
-        res = false;
-    }
     int taille = strlen(*msg)+1;
     send(dSC, &taille, sizeof(int), 0);
     send(dSC, *msg, taille , 0);
@@ -82,7 +79,7 @@ int main(int argc, char *argv[]) {
 
     while(continu){
         continu = lecture(tabdSC[pos],&msg);
-        continu = envoie(tabdSC[(pos+1)%2],&msg);
+        envoie(tabdSC[(pos+1)%2],&msg);
         pos = (pos+1)%2;
     }
     fin(tabdSC[0],&msg);
