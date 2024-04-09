@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-void fin(int dSC) {
+void fin_connexion(int dSC) {
     shutdown(dSC,2) ;
     printf("fermeture\n");
 }
@@ -29,22 +29,27 @@ void envoie(int dSC,char** msg){
     send(dSC, *msg, taille , 0);
 }
 
-int main(int argc, char *argv[]) {
-  
-    printf("Début programme\n");
-
+int init_ouverture_connexion(int port) {
+    
     int dS = socket(PF_INET, SOCK_STREAM, 0);
     printf("Socket Créé\n");
-
 
     struct sockaddr_in ad;
     ad.sin_family = AF_INET;
     ad.sin_addr.s_addr = INADDR_ANY ;
-    ad.sin_port = htons(atoi(argv[1])) ;
+    ad.sin_port = htons(port) ;
     bind(dS, (struct sockaddr*)&ad, sizeof(ad)) ;
     printf("Socket Nommé\n");
+
     listen(dS, 7);
     printf("Mode écoute\n");
+
+    return dS;
+}
+
+int* init_connexion(int dS) {
+
+    printf("je suis dans init_connexion\n");
 
     struct sockaddr_in aC ;
     socklen_t lg1 = sizeof(struct sockaddr_in) ;
@@ -66,21 +71,34 @@ int main(int argc, char *argv[]) {
     int* tabdSC = malloc(2*sizeof(int));
     tabdSC[0] = dSC1;
     tabdSC[1] = dSC2; 
+    return tabdSC;
+}
 
-    bool continu = true;
-    int pos = 1;
+int main(int argc, char *argv[]) {
+  
+    printf("Début programme\n");
 
-    char* msg = malloc(128*sizeof(char));
+    while(true){
 
-    shutdown(dS,2); //on ferme le socket de demande de connection car inutile
+        int dS = init_ouverture_connexion(atoi(argv[1]));
 
-    while(continu){
-        continu = lecture(tabdSC[pos],&msg);
-        envoie(tabdSC[(pos+1)%2],&msg);
-        pos = (pos+1)%2;
+        int* tabdSC = init_connexion(dS);
+    
+        bool continu = true;
+        int pos = 1;
+
+        char* msg = malloc(128*sizeof(char));
+
+        shutdown(dS,2); //on ferme le socket de demande de connection car inutile
+
+        while(continu){
+            continu = lecture(tabdSC[pos],&msg);
+            envoie(tabdSC[(pos+1)%2],&msg);
+            pos = (pos+1)%2;
+        }
+        fin_connexion(tabdSC[0]);
+        fin_connexion(tabdSC[1]);
+        free(msg);
+        free(tabdSC);
     }
-    fin(tabdSC[0]);
-    fin(tabdSC[1]);
-    free(msg);
-    printf("Fin du programme\n");
 }
