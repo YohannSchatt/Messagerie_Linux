@@ -14,7 +14,7 @@ void fin(int dS,char** msg) {
 
 bool lecture(int dS, char** msg){
     bool res = true;
-    recv(dS, *msg, (strlen(*msg)+1)*sizeof(char), 0) ;
+    recv(dS, *msg,strlen(*msg)+1, 0) ;
     if(*msg == "fin\0"){
         res = false;
     }
@@ -33,7 +33,7 @@ bool envoie(int dS, char** msg){
         res = false;
     }
     else {
-        send(dS, *msg, (strlen(*msg)+1)*sizeof(char) , 0);
+        send(dS, *msg, strlen(*msg)+1, 0);
     }
     return res;
 }
