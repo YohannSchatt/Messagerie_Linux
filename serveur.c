@@ -78,18 +78,16 @@ int main(int argc, char *argv[]) {
   
     printf("Début programme\n");
 
-    while(true){
+    int dS = init_ouverture_connexion(atoi(argv[1]));
 
-        int dS = init_ouverture_connexion(atoi(argv[1]));
+    char* msg = malloc(128*sizeof(char));
+
+    while(true){
 
         int* tabdSC = init_connexion(dS);
     
         bool continu = true;
         int pos = 1;
-
-        char* msg = malloc(128*sizeof(char));
-
-        shutdown(dS,2); //on ferme le socket de demande de connection car inutile
 
         while(continu){
             continu = lecture(tabdSC[pos],&msg);
@@ -98,7 +96,9 @@ int main(int argc, char *argv[]) {
         }
         fin_connexion(tabdSC[0]);
         fin_connexion(tabdSC[1]);
-        free(msg);
         free(tabdSC);
     }
+    free(msg);
+    shutdown(dS,2);
+    printf("fin programme");
 }
