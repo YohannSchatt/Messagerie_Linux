@@ -6,38 +6,34 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-void fin(int dSC) {
+void fin(int dSC,char** msg) {
+    free(*msg);
     shutdown(dSC,2) ;
     printf("fermeture");
 }
 
-bool lecture(int dSC){
+bool lecture(int dSC,char **msg){
     bool res = true;
-    char* msg = malloc(128*sizeof(char));
     printf("je suis devant le receive");
-    recv(dSC, msg, (strlen(msg)+1)*sizeof(char), 0) ;
+    recv(dSC, *msg, (strlen(*msg)+1)*sizeof(char), 0) ;
     printf("j'ai passé le receive\n");
-    if(msg == "fin"){
+    if(*msg == "fin"){
         res = false;
     }
     else {
-        printf("%s\n",msg);
+        printf("%s\n",*msg);
     }
-    free(msg);
     return res;
 }
 
-bool envoie(int dSC){
+bool envoie(int dSC,char** msg){
     bool res = true;
-    char* msg = malloc(128*sizeof(char));
-    fgets(msg,128,stdin);
-    if(msg == "fin"){
+    if(*msg == "fin\0"){
         res = false;
     }
     else {
-        send(dSC, msg, (strlen(msg)+1)*sizeof(char) , 0) ;
+        send(dSC, *msg, (strlen(*msg)+1)*sizeof(char) , 0) ;
     }
-    free(msg);
     return res;
 }
 
@@ -84,16 +80,18 @@ int main(int argc, char *argv[]) {
     bool continu = true;
     int pos = 1;
 
+    char* msg = malloc(128*sizeof(char));
+
     printf("%d\n",continu);
 
     while(continu){
         printf("je lis\n");
-        lecture(tabdSC[pos]);
+        lecture(tabdSC[pos],&msg);
         printf("j'envoie\n");
-        envoie(tabdSC[(pos+1)%2]);
+        envoie(tabdSC[(pos+1)%2],&msg);
         pos = (pos+1)%2;
     }
-    fin(tabdSC[0]);
-    fin(tabdSC[1]);
+    fin(tabdSC[0],&msg);
+    fin(tabdSC[1],&msg);
     printf("Fin du programme");
 }
