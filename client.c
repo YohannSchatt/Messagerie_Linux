@@ -17,9 +17,10 @@ bool lecture(int dS, char** msg){
     int taille;
     recv(dS,&taille, sizeof(int), 0);
     recv(dS, *msg,128+1, 0);
-    if(*msg == "fin\n"){
+    if(*msg == "fin\0"){
         res = false;
     }
+    printf("\n");
     printf("L'autre utilisateur dit : %s\n",*msg);
     return res;
 }
@@ -28,7 +29,7 @@ bool envoie(int dS, char** msg){
     bool res = true;
     printf("Ecrit un message : ");
     fgets(*msg,128,stdin);
-    if(*msg == "fin\n"){
+    if(*msg == "fin\0"){
         res = false;
     }
     int taille = strlen(*msg)+1;

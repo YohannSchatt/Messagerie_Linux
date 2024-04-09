@@ -17,7 +17,7 @@ bool lecture(int dSC,char **msg){
     int taille;
     recv(dSC,&taille, sizeof(int), 0);
     recv(dSC, *msg, taille, 0);
-    if(*msg == "fin\n"){
+    if(*msg == "fin\0"){
         res = false;
     }
     printf("%s\n",*msg);
@@ -26,7 +26,7 @@ bool lecture(int dSC,char **msg){
 
 bool envoie(int dSC,char** msg){
     bool res = true;
-    if(*msg == "fin\n"){
+    if(*msg == "fin\0"){
         res = false;
     }
     int taille = strlen(*msg)+1;
