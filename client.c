@@ -28,7 +28,6 @@ bool envoie(int dS, char** msg){
     bool res = true;
     printf("Ecrit un message : ");
     fgets(*msg,128,stdin);
-    printf("Message compris : %s", *msg);
     if(*msg == "fin"){
         res = false;
     }
@@ -60,7 +59,6 @@ int main(int argc, char* argv[]){
         int pos;
 
         recv(dS, &pos, sizeof(int), 0);
-        printf("pos = %d\n", pos);
 
         char* msg = malloc(128*sizeof(char));
 

@@ -14,15 +14,11 @@ void fin(int dSC,char** msg) {
 
 bool lecture(int dSC,char **msg){
     bool res = true;
-    printf("je suis devant le receive");
     recv(dSC, *msg, 128+1, 0) ;
-    printf("j'ai passé le receive\n");
     if(*msg == "fin"){
         res = false;
     }
-    else {
-        printf("%s\n",*msg);
-    }
+    printf("%s\n",*msg);
     return res;
 }
 
@@ -31,9 +27,7 @@ bool envoie(int dSC,char** msg){
     if(*msg == "fin"){
         res = false;
     }
-    else {
-        send(dSC, *msg, strlen(*msg)+1 , 0) ;
-    }
+    send(dSC, *msg, strlen(*msg)+1 , 0) ;
     return res;
 }
 
@@ -67,11 +61,8 @@ int main(int argc, char *argv[]) {
     int r1 = 0;
     int r2 = 1;
 
-
-    printf("r1\n");
     send(dSC1, &r1, sizeof(int), 0) ;
 
-    printf("r2\n");
     send(dSC2, &r2, sizeof(int), 0) ;
 
     int* tabdSC = malloc(2*sizeof(int));
@@ -85,13 +76,9 @@ int main(int argc, char *argv[]) {
 
     shutdown(dS,2); //on ferme le socket de demande de connection car inutile
 
-    printf("%d\n",continu);
-
     while(continu){
-        printf("je lis\n");
-        lecture(tabdSC[pos],&msg);
-        printf("j'envoie\n");
-        envoie(tabdSC[(pos+1)%2],&msg);
+        continu = lecture(tabdSC[pos],&msg);
+        continu = envoie(tabdSC[(pos+1)%2],&msg);
         pos = (pos+1)%2;
     }
     fin(tabdSC[0],&msg);
