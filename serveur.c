@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 void fin_connexion(int dSC) {
     shutdown(dSC,2) ;

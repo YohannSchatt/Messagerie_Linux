@@ -5,10 +5,21 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <pthread.h>
+
+pthread_t th_envoie,th_recept;
+
+struct Args_Thread {
+    int dS;
+    bool* continu;
+    char* msg;
+};
 
 void fin(int dS,char** msg) {
     shutdown(dS,2) ;
-    free(*msg);
+    free(msg[0]);
+    free(msg[1]);
+    free(msg);
     printf("Fin du programme");
 }
 
@@ -16,11 +27,11 @@ bool lecture(int dS, char** msg){
     bool res = true;
     int taille;
     recv(dS,&taille, sizeof(int), 0);
-    recv(dS, *msg,128+1, 0);
+    recv(dS, *msg,taille, 0);
     if((strcmp(*msg,"fin") == 0)){
         res = false;
     }
-    printf("L'autre utilisateur dit : %s\n",*msg);
+    puts(*msg);
     return res;
 }
 
@@ -39,12 +50,29 @@ bool envoie(int dS, char** msg){
     return res;
 }
 
+void* reception(void* args_thread) {
+    struct Args_Thread* args = (struct Args_Thread*)args_thread;
+    while(args->continu){
+        *(args->continu) = lecture(args->dS,&(args->msg));         
+    }
+    pthread_exit(0);
+}
+
+void* propagation(void* args_thread){
+    struct Args_Thread* args = (struct Args_Thread*)args_thread;
+    while(args->continu){
+        *(args->continu) = envoie(args->dS,&(args->msg));
+    }
+    pthread_exit(0);
+}
+
 int main(int argc, char* argv[]){
 
     if (argc != 3) {
         printf("./client IP Port");
     }
     else{
+
         printf("Début programme\n");
         int dS = socket(PF_INET, SOCK_STREAM, 0);
         printf("Socket Créé\n");
@@ -57,22 +85,35 @@ int main(int argc, char* argv[]){
         connect(dS, (struct sockaddr *) &aS, lgA) ;
         printf("Socket Connecté\n");
 
-        bool continu = true;
-        int pos;
+        bool* continu = (bool*)malloc(sizeof(bool));
+        *continu = true;
 
-        recv(dS, &pos, sizeof(int), 0);
+        char* msg_envoie = malloc(128*sizeof(char));
+        char* msg_lecture = malloc(128*sizeof(char));
 
-        char* msg = malloc(128*sizeof(char));
+        struct Args_Thread* args_recept;
+        args_recept->dS = dS;
+        args_recept->continu = continu;
+        args_recept->msg = msg_lecture;
 
-        while(continu){
-            if (pos == 1) {
-                continu = envoie(dS,&msg);
-            }
-            else {
-                continu = lecture(dS,&msg); 
-            }
-            pos = (pos+1)%2;
-        }
-        fin(dS,&msg);
+        struct Args_Thread* args_envoie;
+        args_recept->dS = dS;
+        args_recept->continu = continu;
+        args_recept->msg = msg_envoie;
+
+        void* arg_recept = (dS,&continu,msg_lecture);
+        void* arg_envoie = (dS,&continu,msg_lecture);
+
+        pthread_create(&th_recept, NULL, reception, args_recept);
+
+        pthread_create(&th_envoie,NULL, propagation, args_envoie);
+
+        pthread_join(th_recept,NULL);
+        pthread_join(th_envoie,NULL);
+
+        char** msg = (char**)malloc(2*sizeof(char*));
+        msg[0] = msg_envoie;
+        msg[1] = msg_lecture;
+        fin(dS,msg);
     }
 }
