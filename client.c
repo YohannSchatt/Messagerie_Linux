@@ -14,7 +14,7 @@ void fin(int dS,char** msg) {
 
 bool lecture(int dS, char** msg){
     bool res = true;
-    recv(dS, *msg,strlen(*msg)+1, 0) ;
+    recv(dS, *msg,128+1, 0) ;
     if(*msg == "fin\0"){
         res = false;
     }
