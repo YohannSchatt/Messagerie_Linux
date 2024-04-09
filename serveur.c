@@ -7,6 +7,13 @@
 #include <stdbool.h>
 #include <pthread.h>
 
+struct Args_Thread {
+    int dSC;
+    int* dSC_autre;
+    bool* continu;
+    char* msg;
+};
+
 void fin_connexion(int dSC) {
     shutdown(dSC,2) ;
     printf("fermeture\n");
@@ -73,6 +80,10 @@ int* init_connexion(int dS) {
     tabdSC[0] = dSC1;
     tabdSC[1] = dSC2; 
     return tabdSC;
+}
+
+void communication(void* args_thread) {
+    int *tabdSC = args_thread->dSC_autre;
 }
 
 int main(int argc, char *argv[]) {
