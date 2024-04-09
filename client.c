@@ -6,37 +6,35 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-void fin(int dS) {
+void fin(int dS,char** msg) {
     shutdown(dS,2) ;
+    free(*msg);
     printf("Fin du programme");
 }
 
-bool lecture(int dS){
+bool lecture(int dS, char** msg){
     bool res = true;
-    char* msg = malloc(128*sizeof(char));
-    recv(dS, msg, (strlen(msg)+1)*sizeof(char), 0) ;
-    if(msg == "fin"){
+    recv(dS, *msg, (strlen(*msg)+1)*sizeof(char), 0) ;
+    if(*msg == "fin\0"){
         res = false;
     }
     else {
-        printf("L'autre utilisateur dit : %s\n",msg);
+        printf("L'autre utilisateur dit : %s\n",*msg);
     }
-    free(msg);
     return res;
 }
 
-bool envoie(int dS){
+bool envoie(int dS, char** msg){
     bool res = true;
-    char* msg = malloc(128*sizeof(char));
     printf("Ecrit un message : ");
-    fgets(msg,128,stdin);
-    if(msg == "fin"){
+    fgets(*msg,128,stdin);
+    printf("Message compris : %s", *msg);
+    if(*msg == "fin\0"){
         res = false;
     }
     else {
-        send(dS, msg, (strlen(msg)+1)*sizeof(char) , 0);
+        send(dS, *msg, (strlen(*msg)+1)*sizeof(char) , 0);
     }
-    free(msg);
     return res;
 }
 
@@ -64,15 +62,17 @@ int main(int argc, char* argv[]){
         recv(dS, &pos, sizeof(int), 0);
         printf("pos = %d\n", pos);
 
+        char* msg = malloc(128*sizeof(char));
+
         while(continu){
             if (pos == 1) {
-                continu = envoie(dS);
+                continu = envoie(dS,&msg);
             }
             else {
-                continu = lecture(dS); 
+                continu = lecture(dS,&msg); 
             }
             pos = (pos+1)%2;
         }
-        fin(dS);
+        fin(dS,&msg);
     }
 }
