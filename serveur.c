@@ -6,10 +6,9 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-void fin(int dSC,char** msg) {
-    free(*msg);
+void fin(int dSC) {
     shutdown(dSC,2) ;
-    printf("fermeture");
+    printf("fermeture\n");
 }
 
 bool lecture(int dSC,char **msg){
@@ -80,7 +79,8 @@ int main(int argc, char *argv[]) {
         envoie(tabdSC[(pos+1)%2],&msg);
         pos = (pos+1)%2;
     }
-    fin(tabdSC[0],&msg);
-    fin(tabdSC[1],&msg);
-    printf("Fin du programme");
+    fin(tabdSC[0]);
+    fin(tabdSC[1]);
+    free(msg);
+    printf("Fin du programme\n");
 }
