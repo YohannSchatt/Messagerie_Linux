@@ -14,13 +14,13 @@ void fin(int dS,char** msg) {
 
 bool lecture(int dS, char** msg){
     bool res = true;
-    recv(dS, *msg,128+1, 0) ;
+    int taille;
+    recv(dS,&taille, sizeof(int), 0);
+    recv(dS, *msg,128+1, 0);
     if(*msg == "fin"){
         res = false;
     }
-    else {
-        printf("L'autre utilisateur dit : %s\n",*msg);
-    }
+    printf("L'autre utilisateur dit : %s\n",*msg);
     return res;
 }
 
@@ -31,9 +31,9 @@ bool envoie(int dS, char** msg){
     if(*msg == "fin"){
         res = false;
     }
-    else {
-        send(dS, *msg, strlen(*msg)+1, 0);
-    }
+    int taille = strlen(*msg)+1;
+    send(dS, &taille, sizeof(int), 0);
+    send(dS, *msg, taille, 0);
     return res;
 }
 

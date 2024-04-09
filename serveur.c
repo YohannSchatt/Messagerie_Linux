@@ -14,7 +14,9 @@ void fin(int dSC,char** msg) {
 
 bool lecture(int dSC,char **msg){
     bool res = true;
-    recv(dSC, *msg, 128+1, 0) ;
+    int taille;
+    recv(dSC,&taille, sizeof(int), 0);
+    recv(dSC, *msg, taille, 0);
     if(*msg == "fin"){
         res = false;
     }
@@ -27,7 +29,9 @@ bool envoie(int dSC,char** msg){
     if(*msg == "fin"){
         res = false;
     }
-    send(dSC, *msg, strlen(*msg)+1 , 0) ;
+    int taille = strlen(*msg)+1;
+    send(dSC, &taille, sizeof(int), 0);
+    send(dSC, *msg, taille , 0);
     return res;
 }
 
