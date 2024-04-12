@@ -23,45 +23,52 @@ void fin(int dS,char** msg) {
     printf("Fin du programme");
 }
 
-bool lecture(int dS, char** msg){
+void lecture(int dS, char** msg){
     bool res = true;
     int taille;
     recv(dS,&taille, sizeof(int), 0);
     recv(dS, *msg,taille, 0);
-    if((strcmp(*msg,"fin") == 0)){
-        res = false;
-    }
     puts(*msg);
-    return res;
 }
 
-bool envoie(int dS, char** msg){
+void envoie(int dS, char** msg){
+    printf("coucou\n");
     bool res = true;
     printf("Ecrit un message : ");
     fgets(*msg,128,stdin);
     char *pos = strchr(*msg,'\n');
     *pos = '\0';
-    if((strcmp(*msg,"fin") == 0)){
+    printf("%s",*msg);
+    if(strcmp(*msg,"fin") == 0){
         res = false;
     }
     int taille = strlen(*msg)+1;
     send(dS, &taille, sizeof(int), 0);
     send(dS, *msg, taille, 0);
-    return res;
 }
 
-void* reception(void* args_thread) {
-    struct Args_Thread* args = (struct Args_Thread*)args_thread;
-    while(*(args->continu)){
-        *(args->continu) = lecture(args->dS,&(args->msg));         
+void* reception(void* args_thread1) {
+    printf("je suis dans reception\n");
+    char* msg = (char*)malloc(128*sizeof(char));
+    struct Args_Thread args = *((struct Args_Thread*)args_thread1);
+    bool* continu = args.continu;
+    int dS = args.dS;
+    printf("bool = %d\n",*continu);
+    while(true){
+        lecture(dS,&msg);         
     }
     pthread_exit(0);
 }
 
-void* propagation(void* args_thread){
-    struct Args_Thread* args = (struct Args_Thread*)args_thread;
-    while(*(args->continu)){
-        *(args->continu) = envoie(args->dS,&(args->msg));
+void* propagation(void* args_thread2){
+    printf("je suis dans propagation\n");
+    char* msg = (char*)malloc(128*sizeof(char));
+    struct Args_Thread args = *((struct Args_Thread*)args_thread2);
+    //bool* continu = args.continu;
+    int dS = args.dS;
+    //printf("bool = %d\n",*continu);
+    while(true){
+        envoie(dS,&msg);
     }
     pthread_exit(0);
 }
@@ -88,29 +95,37 @@ int main(int argc, char* argv[]){
         bool* continu = (bool*)malloc(sizeof(bool));
         *continu = true;
 
-        char* msg_envoie = malloc(128*sizeof(char));
-        char* msg_lecture = malloc(128*sizeof(char));
+        char* msg_envoie = (char*)malloc(128*sizeof(char));
+        char* msg_lecture = (char*)malloc(128*sizeof(char));
 
-        struct Args_Thread* args_recept;
-        args_recept->dS = dS;
-        args_recept->continu = continu;
-        args_recept->msg = msg_lecture;
 
-        struct Args_Thread* args_envoie;
-        args_recept->dS = dS;
-        args_recept->continu = continu;
-        args_recept->msg = msg_envoie;
+        struct Args_Thread args_recept;
+        args_recept.dS = dS;
+        args_recept.continu = continu;
+        args_recept.msg = msg_lecture;
 
-        pthread_create(&th_recept, NULL, reception, (void*)args_recept);
+        struct Args_Thread args_envoie;
+        args_recept.dS = dS;
+        args_recept.continu = continu;
+        args_recept.msg = msg_envoie;
 
-        pthread_create(&th_envoie,NULL, propagation, (void*)args_envoie);
+        if (pthread_create(&th_recept, NULL, reception, (void*)&args_recept) == -1) {
+            fprintf(stderr, "Erreur lors de la création du thread\n");
+            return EXIT_FAILURE;
+        }
+
+        if (pthread_create(&th_envoie,NULL, propagation, (void*)&args_envoie) == -1) {
+            fprintf(stderr, "Erreur lors de la création du thread\n");
+            return EXIT_FAILURE;
+        }
 
         pthread_join(th_recept,NULL);
         pthread_join(th_envoie,NULL);
+        
 
-        char** msg = (char**)malloc(2*sizeof(char*));
-        msg[0] = msg_envoie;
-        msg[1] = msg_lecture;
+        char **msg = (char**)malloc(2*sizeof(char*));
+        msg[0] = args_envoie.msg;
+        msg[1] = args_recept.msg;
         fin(dS,msg);
     }
 }
