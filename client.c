@@ -66,6 +66,7 @@ void* propagation(void* args_thread2){
     struct Args_Thread args = *((struct Args_Thread*)args_thread2);
     //bool* continu = args.continu;
     int dS = args.dS;
+    printf("%d\n",dS);
     //printf("bool = %d\n",*continu);
     while(true){
         envoie(dS,&msg);
@@ -83,7 +84,7 @@ int main(int argc, char* argv[]){
         printf("Début programme\n");
         int dS = socket(PF_INET, SOCK_STREAM, 0);
         printf("Socket Créé\n");
-
+        printf("%d\n",dS);
         struct sockaddr_in aS;
         aS.sin_family = AF_INET;
         inet_pton(AF_INET,argv[1],&(aS.sin_addr)) ;
@@ -103,11 +104,13 @@ int main(int argc, char* argv[]){
         args_recept.dS = dS;
         args_recept.continu = continu;
         args_recept.msg = msg_lecture;
+        printf("%d\n",args_recept.dS);
 
         struct Args_Thread args_envoie;
-        args_recept.dS = dS;
-        args_recept.continu = continu;
-        args_recept.msg = msg_envoie;
+        args_envoie.dS = dS;
+        args_envoie.continu = continu;
+        args_envoie.msg = msg_envoie;
+        printf("%d\n",args_envoie.dS);
 
         if (pthread_create(&th_recept, NULL, reception, (void*)&args_recept) == -1) {
             fprintf(stderr, "Erreur lors de la création du thread\n");

@@ -25,6 +25,7 @@ bool lecture(int dSC,char **msg, int id){
     printf("je suis dans lecture\n");
     bool res = true;
     int taille;
+    printf("dSC%d : %d\n",id,dSC);
     recv(dSC,&taille, sizeof(int), 0);
     printf("coucou");
     recv(dSC, *msg, taille, 0);
@@ -104,6 +105,7 @@ void init_connexion(int dS,int* tabdSC, pthread_t* thread) {
                 i = (i + 1)%NB_MAX_PERSONNE;
             }
             tabdSC[i] = dSC;
+            printf("dSC%d : %d\n",i,dSC);
 
             struct Args_Thread args;
             args.id_tab = i;
