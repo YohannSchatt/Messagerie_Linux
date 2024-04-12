@@ -52,7 +52,7 @@ bool envoie(int dS, char** msg){
 
 void* reception(void* args_thread) {
     struct Args_Thread* args = (struct Args_Thread*)args_thread;
-    while(args->continu){
+    while(*(args->continu)){
         *(args->continu) = lecture(args->dS,&(args->msg));         
     }
     pthread_exit(0);
@@ -60,7 +60,7 @@ void* reception(void* args_thread) {
 
 void* propagation(void* args_thread){
     struct Args_Thread* args = (struct Args_Thread*)args_thread;
-    while(args->continu){
+    while(*(args->continu)){
         *(args->continu) = envoie(args->dS,&(args->msg));
     }
     pthread_exit(0);
@@ -101,9 +101,9 @@ int main(int argc, char* argv[]){
         args_recept->continu = continu;
         args_recept->msg = msg_envoie;
 
-        pthread_create(&th_recept, NULL, reception, args_recept);
+        pthread_create(&th_recept, NULL, reception, (void*)args_recept);
 
-        pthread_create(&th_envoie,NULL, propagation, args_envoie);
+        pthread_create(&th_envoie,NULL, propagation, (void*)args_envoie);
 
         pthread_join(th_recept,NULL);
         pthread_join(th_envoie,NULL);

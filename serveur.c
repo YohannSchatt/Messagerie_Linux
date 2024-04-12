@@ -7,14 +7,16 @@
 #include <stdbool.h>
 #include <pthread.h>
 
+int NB_MAX_PERSONNE = 100;
+
 struct Args_Thread {
+    int id_tab;
     int dSC;
     int* dSC_autre;
-    bool* continu;
-    char* msg;
 };
 
 void fin_connexion(int dSC) {
+    args->dSC_autre[args->id_tab] = -1;
     shutdown(dSC,2) ;
     printf("fermeture\n");
 }
@@ -37,6 +39,21 @@ void envoie(int dSC,char** msg){
     send(dSC, *msg, taille , 0);
 }
 
+void lecture_envoie(struct Args_Thread* args) {
+    char* msg = (char*)malloc(128*sizeof(char));
+    while (continu) {
+        continu = lecture(args->dSC, &msg);
+        if !strcmp(*msg,"fin"){
+            for(int i = 0;i<NB_MAX_PERSONNE;i++) {
+                if (args->dSC != args->dSC_autre[i] && args->dSC_autre[i] != -1) {
+                    envoie(args->dSC, &msg);  
+                }
+            }
+        }
+    }
+    fin_connexion(args->dSC,args->dSC_autre);
+}
+
 int init_ouverture_connexion(int port) {
     
     int dS = socket(PF_INET, SOCK_STREAM, 0);
@@ -55,31 +72,39 @@ int init_ouverture_connexion(int port) {
     return dS;
 }
 
-int* init_connexion(int dS) {
+void init_connexion(int dS,int* tabdSC, pthread_t* thread) {
 
     printf("je suis dans init_connexion\n");
 
-    struct sockaddr_in aC ;
-    socklen_t lg1 = sizeof(struct sockaddr_in) ;
-    int dSC1 = accept(dS, (struct sockaddr*) &aC,&lg1) ;
-    printf("Client 1 Connecté\n");
+    int count = 0;
 
-    struct sockaddr_in aB ;
-    socklen_t lg2 = sizeof(struct sockaddr_in) ;
-    int dSC2 = accept(dS, (struct sockaddr*) &aB,&lg2) ;
-    printf("Client 2 Connecté\n");
+    for(int i = 0; i<NB_MAX_PERSONNE;i++) {
+        tabdSC = -1;
+    }
+    int i = 0;
 
-    int r1 = 0;
-    int r2 = 1;
+    while(true){
 
-    send(dSC1, &r1, sizeof(int), 0) ;
+        struct sockaddr_in aC ;
+        socklen_t lg = sizeof(struct sockaddr_in) ;
+        if (count < NB_MAX_PERSONNE){
+        int dSC = accept(dS, (struct sockaddr*) &aC,&lg) ;
+        printf("Client Connecté\n");
 
-    send(dSC2, &r2, sizeof(int), 0) ;
+        while(tabdSC[i] != -1){
+            i = (i + 1)%NB_MAX_PERSONNE;
+        }
+        tabdSC[i] = dSC;
 
-    int* tabdSC = malloc(2*sizeof(int));
-    tabdSC[0] = dSC1;
-    tabdSC[1] = dSC2; 
-    return tabdSC;
+        struct Args_Thread* args;
+        args->id = i;
+        args->dSC = dSC;
+        args->dSC_autre = tabdSC;
+
+        pthread_create(&thread[i], NULL, lecture_envoie,(void*)args);
+        count++;
+        }
+    }
 }
 
 void communication(void* args_thread) {
@@ -87,29 +112,20 @@ void communication(void* args_thread) {
 }
 
 int main(int argc, char *argv[]) {
-  
+
     printf("Début programme\n");
+
+    pthread_t* thread = (pthread_t*)malloc(NB_MAX_PERSONNE*sizeof(pthread));
 
     int dS = init_ouverture_connexion(atoi(argv[1]));
 
     char* msg = malloc(128*sizeof(char));
 
-    while(true){
+    int* tabdSC = (int*)malloc(NB_MAX_PERSONNE*sizeof(int));
 
-        int* tabdSC = init_connexion(dS);
-    
-        bool continu = true;
-        int pos = 1;
+    init_connexion(dS,tabdSC,pthread_t* thread);
 
-        while(continu){
-            continu = lecture(tabdSC[pos],&msg);
-            envoie(tabdSC[(pos+1)%2],&msg);
-            pos = (pos+1)%2;
-        }
-        fin_connexion(tabdSC[0]);
-        fin_connexion(tabdSC[1]);
-        free(tabdSC);
-    }
+    free(tabdSC);
     free(msg);
     shutdown(dS,2);
     printf("fin programme");
