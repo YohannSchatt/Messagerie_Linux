@@ -58,7 +58,7 @@ void* lecture_envoie(void* args_thread) {
             for(int i = 0;i<NB_MAX_PERSONNE;i++) {
                 pthread_mutex_lock(&M1);
                 if (tabdSC[i] != -1 && dSC != tabdSC[i]) {
-                    envoie(dSC, &msg);  
+                    envoie(tabdSC[i], &msg);  
                 }
                 pthread_mutex_unlock(&M1);
             }
