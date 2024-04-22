@@ -27,11 +27,11 @@ struct Args_Thread { //structure permettant de transférer les arguments dans le
 //Sortie : tableau des sockets modifié
 void fin_connexion(int dSC,int id) {
     pthread_mutex_lock(&M1); //empêche le tableau d'être accédé pour éviter problème d'exclusion mutuelle
-    pthread_mutex_lock(&M2); //empêche le nombre de personne présente d'être accédé pour éviter problème d'exclusion mutuelle
     tabdSC[id] = -1;
-    NB_PERSONNE_ACTUELLE--;
     pthread_mutex_unlock(&M1); //reouvre le tableau
     pthread_mutex_lock(&M2); //reouvre le nombre de personne
+    NB_PERSONNE_ACTUELLE--;
+    pthread_mutex_unlock(&M2); //empêche le nombre de personne présente d'être accédé pour éviter problème d'exclusion mutuelles
     shutdown(dSC,2); //ferme le socket
     printf("fermeture\n");
 }
@@ -44,7 +44,7 @@ bool lecture(int dSC,char **msg){
     int taille; //taille du message
     recv(dSC,&taille, sizeof(int), 0); //communication de la taille
     *msg = (char*)malloc(taille*sizeof(char)); //alloue la taille du message précisément a la taille
-    recv(dSC, msg, taille, 0); //reçoit le message
+    recv(dSC,*msg, taille, 0); //reçoit le message
     if((strcmp(*msg,"fin") == 0)){ //si on reçoit fin alors on change le booléen pour couper la communication
         res = false;
     }
@@ -62,7 +62,7 @@ void envoie(int dSC,char** msg, char* pseudo){
     strcat(message," : "); //puis les caractères de liaison
     strcat(message, *msg); //puis le message
     int taille = strlen(message); //on recalcule la taille exacte du message
-    send(dSC, &message, sizeof(int), 0); //on envoie la taille au client
+    send(dSC, &taille, sizeof(int), 0); //on envoie la taille au client
     send(dSC, message, taille, 0); //puis le message
     free(message); //Puis on free le message
 }
@@ -72,8 +72,8 @@ void envoie(int dSC,char** msg, char* pseudo){
 //Sortie : renvoie rien, mais assure la liaison entre les clients tant que le client du socket ne coupe pas la communication
 void lecture_envoie(struct Args_Thread args) {
     bool continu = true; //booléen qui va assurer la boucle tant que la communication n'est pas coupé 
+    char* msg; //le message qui sera donnée au fonction lecture et envoie
     while (continu) {
-        char* msg; //le message qui sera donnée au fonction lecture et envoie
         continu = lecture(args.dSC, &msg);
         if (continu){ //si on reçoit autre que fin alors on continu
             for(int i = 0;i<NB_MAX_PERSONNE;i++) { //boucle pour envoyer a tout le monde 
@@ -82,10 +82,10 @@ void lecture_envoie(struct Args_Thread args) {
                     envoie(tabdSC[i], &msg,args.pseudo);  //envoie le message
                 }
                 pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
-                free(msg); //libère l'espace du message
             }
         }
     }
+    free(msg); //libère l'espace du message
     fin_connexion(args.dSC,args.id); //si communication coupé alors on mets fin au socket
 }
 
@@ -101,7 +101,9 @@ int init_ouverture_connexion(int port) {
     ad.sin_family = AF_INET;
     ad.sin_addr.s_addr = INADDR_ANY ;
     ad.sin_port = htons(port) ;
-    bind(dS, (struct sockaddr*)&ad, sizeof(ad)) ; //Donne un nom au socket
+    if (bind(dS, (struct sockaddr*)&ad, sizeof(ad)) == -1) { //Donne un nom au socket
+        
+    }
     printf("Socket Nommé\n");
 
     listen(dS, 7); //mets en position d'écoute
@@ -129,8 +131,9 @@ void* choixPseudo(void* args_thread){
 
     args.id = i; //l'id ou se trouve le socket du client
     args.dSC = dSC; //le socket du client
-
     pthread_mutex_unlock(&M1); //on redonne l'accès
+
+
 
     lecture_envoie(args); //le client va pouvoir commencer a communiquer
     pthread_exit(0);

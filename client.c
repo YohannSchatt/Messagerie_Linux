@@ -68,6 +68,7 @@ void* reception(void* args_thread) {
         continu = *(args.continu); //met à jour le booléen si modifié par la fonction propagation
         pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
     }
+    printf("j'ai reçu le fin dans reception");
     pthread_exit(0); //on ferme le thread
 }
 //Fonction qui envoie les messages 
@@ -80,6 +81,7 @@ void* propagation(void* args_thread){
     while(continu){
         continu = envoie(args.dS,&msg); //fonction qui envoie le message
     }
+    printf("j'ai reçu le fin dans propagation");
     pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
     *args.continu = false; //on le set a false 
     pthread_mutex_unlock(&M1); //on redonne l'accès
@@ -119,39 +121,44 @@ int main(int argc, char* argv[]){
         inet_pton(AF_INET,argv[1],&(aS.sin_addr)) ; 
         aS.sin_port = htons(atoi(argv[2])) ;
         socklen_t lgA = sizeof(struct sockaddr_in) ;
-        connect(dS, (struct sockaddr *) &aS, lgA) ; //se connecte au serveur
-        printf("Socket Connecté\n");
-
-        bool* continu = (bool*)malloc(sizeof(bool)); //alloue la place pour le pointeur de booléen utilisé dans les deux threads
-        *continu = true; //assigne sa valeur
-
-        struct Args_Thread args_recept; //structure des arguments de reception
-        args_recept.dS = dS;
-        args_recept.continu = continu;
-
-        struct Args_Thread args_envoie; //structure des arguments de message
-        args_envoie.dS = dS;
-        args_envoie.continu = continu;
-
-    // Les deux structures sont différents pour éviter des problèmes de concurrence même si ils prennent les même données 
- 
-        choixPseudo(dS); //l'utilisateur donne son pseudo
-
-        if (pthread_create(&th_recept, NULL, reception, (void*)&args_recept) == -1) { //lance le thread de réception
-            fprintf(stderr, "Erreur lors de la création du thread de reception\n"); //si y a un problème 
+        if (connect(dS, (struct sockaddr *) &aS, lgA) == -1) { //se connecte au serveur
+            fprintf(stderr, "Erreur lors de la création de la connexion\n"); //si y a un problème 
             return EXIT_FAILURE; //fin du programme
         }
+        else {
+            printf("Socket Connecté\n");
 
-        if (pthread_create(&th_envoie,NULL, propagation, (void*)&args_envoie) == -1) { //lance le thread propagation
-            fprintf(stderr, "Erreur lors de la création du thread d'envoie\n"); //si y a un problème 
-            return EXIT_FAILURE; //fin du programme
+            bool* continu = (bool*)malloc(sizeof(bool)); //alloue la place pour le pointeur de booléen utilisé dans les deux threads
+            *continu = true; //assigne sa valeur
+
+            struct Args_Thread args_recept; //structure des arguments de reception
+            args_recept.dS = dS;
+            args_recept.continu = continu;
+
+            struct Args_Thread args_envoie; //structure des arguments de message
+            args_envoie.dS = dS;
+            args_envoie.continu = continu;
+
+            // Les deux structures sont différents pour éviter des problèmes de concurrence même si ils prennent les même données 
+    
+            choixPseudo(dS); //l'utilisateur donne son pseudo
+
+            if (pthread_create(&th_recept, NULL, reception, (void*)&args_recept) == -1) { //lance le thread de réception
+                fprintf(stderr, "Erreur lors de la création du thread de reception\n"); //si y a un problème 
+                return EXIT_FAILURE; //fin du programme
+            }
+
+            if (pthread_create(&th_envoie,NULL, propagation, (void*)&args_envoie) == -1) { //lance le thread propagation
+                fprintf(stderr, "Erreur lors de la création du thread d'envoie\n"); //si y a un problème 
+                return EXIT_FAILURE; //fin du programme
+            }
+            
+            pthread_join(th_recept,NULL); //attend la fin du thread de réception
+            pthread_join(th_envoie,NULL); //attend la fin du thread de propagation
+
+            fin(dS); //met fin au socket
+
+            printf("fin du programme\n");
         }
-        
-        pthread_join(th_recept,NULL); //attend la fin du thread de réception
-        pthread_join(th_envoie,NULL); //attend la fin du thread de propagation
-
-        fin(dS); //met fin au socket
-
-        printf("fin du programme\n");
     }
 }
