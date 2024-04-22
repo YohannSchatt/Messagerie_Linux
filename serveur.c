@@ -43,11 +43,16 @@ void fin_connexion(int dSC,int id) {
 bool lecture(int dSC,char **msg){
     bool res = true; //résultat initiale 
     int taille; //taille du message
-    recv(dSC,&taille, sizeof(int), 0); //communication de la taille
-    *msg = (char*)malloc(taille*sizeof(char)); //alloue la taille du message précisément a la taille
-    recv(dSC,*msg, taille, 0); //reçoit le message
-    if((strcmp(*msg,"fin") == 0)){ //si on reçoit fin alors on change le booléen pour couper la communication
-        res = false;
+    if (recv(dSC,&taille, sizeof(int), 0) == -1){ //communication de la taille
+        *msg = (char*)malloc(taille*sizeof(char)); //alloue la taille du message précisément a la taille
+        if (recv(dSC,*msg, taille, 0) == -1){ //reçoit le message
+            if((strcmp(*msg,"fin") == 0)){ //si on reçoit fin alors on change le booléen pour couper la communication
+                res = false;
+            }
+        }
+        else {
+            
+        }
     }
     return res; //renvoie le résultat
 }
@@ -103,14 +108,17 @@ int init_ouverture_connexion(int port) {
     ad.sin_addr.s_addr = INADDR_ANY ;
     ad.sin_port = htons(port) ;
     if (bind(dS, (struct sockaddr*)&ad, sizeof(ad)) == -1) { //Donne un nom au socket
-        
+        fprintf(stderr,"problème de nommage du socket");
+        exit(0);
     }
-    printf("Socket Nommé\n");
+    else {
+        printf("Socket Nommé\n");
 
-    listen(dS, 7); //mets en position d'écoute
-    printf("Mode écoute\n");
+        listen(dS, 7); //mets en position d'écoute
+        printf("Mode écoute\n");
 
-    return dS; //renvoie le socket
+        return dS; //renvoie le socket
+    }
 }
 
 void* choixPseudo(void* args_thread){
@@ -124,7 +132,7 @@ void* choixPseudo(void* args_thread){
     recv(dSC, args.pseudo, taille, 0); //reçoit le message
 
     pthread_mutex_lock(&M1); //bloque l'accès au tableau
-    int i = 0; //i qui permet de parcourir la boucle
+    int i = 0;
     while(tabdSC[i] != -1){ //si on trouve un slot de libre (qui existe forcément par la vérification fait au préalable)
         i = (i + 1)%NB_MAX_PERSONNE;
     }
@@ -155,7 +163,7 @@ void init_connexion(int dS) {
     while(true){ //continue a s'éxecuter 
 
         int dSC = accept(dS, (struct sockaddr*) &aC,&lg); //crée le socket client
-        if (dSC == -1) { //gestion de l'erreur
+        if (dSC == -1) { //gestion de l'erreur de accept
             printf("problème de connexion");
         }
         else {
@@ -163,7 +171,7 @@ void init_connexion(int dS) {
             if (NB_PERSONNE_ACTUELLE < NB_MAX_PERSONNE-1){ //si il reste de la place
 
                 printf("Client Connecté\n");            
-                NB_PERSONNE_ACTUELLE++; //on ajoute un au compteur
+                NB_PERSONNE_ACTUELLE++;
 
                 pthread_mutex_unlock(&M2); //on redonne l'accès au nombre de client connecté
 
@@ -187,7 +195,7 @@ int main(int argc, char *argv[]) {
 
     printf("Début programme\n");
 
-    signal(SIGINT, ArretForce);
+    signal(SIGINT, ArretForce); //Ajout du signal de fin ctrl+c
 
     int dS = init_ouverture_connexion(atoi(argv[1])); //on crée le socket de communication 
 
