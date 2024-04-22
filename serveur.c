@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <signal.h>
 
 #define NB_MAX_PERSONNE 100 //limite max de personne sur le serveur
 int NB_PERSONNE_ACTUELLE = 0; //compteur du nombre de personne connecté
@@ -153,29 +154,40 @@ void init_connexion(int dS) {
 
     while(true){ //continue a s'éxecuter 
 
-        int dSC = accept(dS, (struct sockaddr*) &aC,&lg) ; //crée le socket client
-        
-        pthread_mutex_lock(&M2); //bloque l'accès au compteur du nombre de personne
-        if (NB_PERSONNE_ACTUELLE < NB_MAX_PERSONNE-1){ //si il reste de la place
-
-            printf("Client Connecté\n");            
-            NB_PERSONNE_ACTUELLE++; //on ajoute un au compteur
-
-            pthread_mutex_unlock(&M2); //on redonne l'accès au nombre de client connecté
-
-            pthread_t thread; //on crée le thread du client
-            pthread_create(&thread, NULL, choixPseudo,(void*)&dSC); //on lance le thread
+        int dSC = accept(dS, (struct sockaddr*) &aC,&lg); //crée le socket client
+        if (dSC == -1) { //gestion de l'erreur
+            printf("problème de connexion");
         }
         else {
-            shutdown(dSC,2); //fin du socket car il n'y a plus de place dans la communication
+            pthread_mutex_lock(&M2); //bloque l'accès au compteur du nombre de personne
+            if (NB_PERSONNE_ACTUELLE < NB_MAX_PERSONNE-1){ //si il reste de la place
+
+                printf("Client Connecté\n");            
+                NB_PERSONNE_ACTUELLE++; //on ajoute un au compteur
+
+                pthread_mutex_unlock(&M2); //on redonne l'accès au nombre de client connecté
+
+                pthread_t thread; //on crée le thread du client
+                pthread_create(&thread, NULL, choixPseudo,(void*)&dSC); //on lance le thread
+            }
+            else {
+                shutdown(dSC,2); //fin du socket car il n'y a plus de place dans la communication
+            }
         }
     }
+}
+
+void ArretForce(int n) {
+    printf("Coupure du programme\n");
+    exit(0);
 }
 
 //main de la fonciton
 int main(int argc, char *argv[]) { 
 
     printf("Début programme\n");
+
+    signal(SIGINT, ArretForce);
 
     int dS = init_ouverture_connexion(atoi(argv[1])); //on crée le socket de communication 
 

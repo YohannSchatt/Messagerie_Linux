@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <signal.h>
 
 pthread_t th_envoie,th_recept; //création des 2 threads, celui qui va lire les messages reçu et celui qui envoie son message au serveur
 
@@ -104,10 +105,17 @@ void choixPseudo(int dS){
     free(msg); //libère la mémoire du message
 }
 
+void ArretForce(int n) {
+    printf("Coupure du programme\n");
+    exit(0);
+}
+
 //--------------------------------------main--------------------------------------------
 //Fonction principale du programme
 //pour lancer le programme il faut écrite : ./client "IP" "Port"
 int main(int argc, char* argv[]){
+
+    signal(SIGINT, ArretForce);
 
     if (argc != 3) { //si le programme n'a pas 2 arguments
         printf("./client IP Port\n");
