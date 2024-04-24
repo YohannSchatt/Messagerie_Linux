@@ -63,19 +63,17 @@ bool lecture(int dSC,char **msg){
 //Fonction qui envoie le message donnée en paramètre avec le pseudo correspondant au client qu'on a en paramètre grâce au socket
 //Entrée : le socket, le message, et le pseudo
 //Sortie : renvoie rien, le message est envoyé
-bool envoie(int dSC,char** msg, char* pseudo){
-    bool res = true;
+void envoie(int dSC,char** msg, char* pseudo){
     int taillemsg = strlen(*msg)+1; //taille du msg (+1 pour '\0)
-    int taillepseudo = strlen(pseudo)+1;
+    int taillepseudo = strlen(pseudo);
     char* message = (char*)malloc((taillemsg+taillepseudo+3)*sizeof(char));
     strcat(message,pseudo);
     strcat(message," : ");
     strcat(message, *msg);
     int taille = strlen(message);
     send(dSC, &taille, sizeof(int), 0);
-    send(dSC, message, taille, 0); //on envoie la taille au client et le message
-    free(message); //Puis on free le message
-    return res;
+    send(dSC, message, taille, 0); 
+    free(message);
 }
 
 //Cette fonction gère la lecture du message d'un client qui sera ensuite envoyé a tout les clients
@@ -83,22 +81,21 @@ bool envoie(int dSC,char** msg, char* pseudo){
 //Sortie : renvoie rien, mais assure la liaison entre les clients tant que le client du socket ne coupe pas la communication
 void lecture_envoie(struct Args_Thread args) {
     bool continu = true; //booléen qui va assurer la boucle tant que la communication n'est pas coupé 
-    char* msg = (char*)malloc(sizeof(char)); //le message qui sera donnée au fonction lecture et envoie
+    char* msg = (char*)malloc(sizeof(char));
     msg[0] ='\0'; 
     while (continu) {
         continu = lecture(args.dSC, &msg);
         if (continu){
             for(int i = 0;i<NB_MAX_PERSONNE;i++) {
-                bool sendSucess;
                 pthread_mutex_lock(&M1); //on bloque l'accès au tableau
                 if (tabdSC[i] != -1 && args.dSC != tabdSC[i]) { //si le socket exite et est différent de celui de notre client alors on envoie le message
-                    sendSucess = envoie(tabdSC[i], &msg,args.pseudo);  //envoie le message
+                    envoie(tabdSC[i], &msg,args.pseudo);
                 }
                 pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
             }
         }
     }
-    free(msg); //libère l'espace du message
+    free(msg);
     fin_connexion(args.dSC,args.id); //si communication coupé alors on mets fin au socket
 }
 

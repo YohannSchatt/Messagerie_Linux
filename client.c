@@ -27,10 +27,10 @@ void fin(int dS) {
 //Fonction qui prend un paramètre un signal et qui stop le programme proprement
 void ArretForce(int n) {
     printf("Coupure du programme\n");
-    if (d !=-1){
-        int taille = strlen("fin");
+    if (d != -1){
+        int taille = strlen("fin")+1;
         send(d,&taille,sizeof(int),0);
-        send(d,"fin",taille+1,0);
+        send(d,"fin",taille,0);
         fin(d);
     }
     exit(0);
@@ -76,7 +76,7 @@ bool envoie(int dS, char** msg){
         res = false;
     }
     int taille = strlen(*msg)+1; //on récupère la taille du message (+1 pour le caractère de '\0')
-    if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == -1){ //envoie de la taille et le message
+    if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == 0){ //envoie de la taille et le message
         res = false;
     }
     return res;
@@ -89,35 +89,37 @@ void* reception(void* args_thread) {
     struct Args_Thread args = *((struct Args_Thread*)args_thread); //récupère les arguments
     bool continu = *(args.continu);
     while(continu){ 
-        continu = lecture(args.dS,args.continu);
         pthread_mutex_lock(&M1); //bloque l'accès au booléen (car peut être écrit pendant sa lecture)
         continu = *(args.continu);
         pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
+        continu = lecture(args.dS,args.continu);
     }
+    printf("fin reception");
     pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
     *args.continu = false;
     pthread_mutex_unlock(&M1); //on redonne l'accès
-    pthread_exit(0); //on ferme le thread
+    pthread_exit(0); 
 }
 
 //Fonction qui envoie les messages 
 //Entrée : une structure qui sert d'argument pour que la fonction passe dans le thread et reçoit les données qui lui sont utiles
 //Sortie : renvoie rien, gère l'envoie des messages
 void* propagation(void* args_thread){
-    char* msg = (char*)malloc(128*sizeof(char)); //allou la taille du message (128 max car fgets a 128 max)
+    char* msg = (char*)malloc(128*sizeof(char)); //alloue la taille du message (128 max car fgets à 128 max)
     struct Args_Thread args = *((struct Args_Thread*)args_thread); //récupère les arguments
     bool continu = true;
     while(continu){
-        continu = envoie(args.dS,&msg); //fonction qui envoie le message
         pthread_mutex_lock(&M1); //bloque l'accès au booléen (car peut être écrit pendant sa lecture)
         continu = *(args.continu); //met à jour le booléen si modifié par la fonction propagation
         pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
+        continu = envoie(args.dS,&msg); 
     }
+    printf("fin propagation");
     pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
-    *args.continu = false; //on le set a false 
+    *args.continu = false; 
     pthread_mutex_unlock(&M1); //on redonne l'accès
-    free(msg); //on libère l'espace du message
-    pthread_exit(0); //on ferme le thread
+    free(msg); 
+    pthread_exit(0); 
 }
 
 //Fonction qui permet a l'utilisateur de sélectionner son pseudo
@@ -131,12 +133,10 @@ void choixPseudo(int dS){
     *pos = '\0'; //le change en '\0'
     int taille = strlen(msg)+1; // +1 pour l'envoie de '\0'
     if(send(dS, &taille, sizeof(int), 0) == -1){ //envoie la taille
-        shutdown(dS,2);
         ArretForce(0);
     } 
     else {
         if (send(dS, msg, taille, 0) == -1) { //envoie le message
-            shutdown(dS,2);
             ArretForce(0);
         }
     }
@@ -164,6 +164,7 @@ int main(int argc, char* argv[]){
         aS.sin_port = htons(atoi(argv[2])) ;
         socklen_t lgA = sizeof(struct sockaddr_in) ;
         if (connect(dS, (struct sockaddr *) &aS, lgA) == -1) { //se connecte au serveur
+            fin(dS);
             fprintf(stderr, "Erreur lors de la création de la connexion\n");
             return EXIT_FAILURE; //fin du programme
         }
@@ -189,11 +190,13 @@ int main(int argc, char* argv[]){
                     choixPseudo(dS); //l'utilisateur donne son pseudo
 
                     if (pthread_create(&th_recept, NULL, reception, (void*)&args_recept) == -1) { //lance le thread de réception
+                        fin(dS);
                         fprintf(stderr, "Erreur lors de la création du thread de reception\n"); //si y a un problème 
                         return EXIT_FAILURE; //fin du programme
                     }
 
-                    if (pthread_create(&th_envoie,NULL, propagation, (void*)&args_envoie) == -1) { //lance le thread propagation
+                    if (pthread_create(&th_envoie, NULL, propagation, (void*)&args_envoie) == -1) { //lance le thread propagation
+                        fin(dS);
                         fprintf(stderr, "Erreur lors de la création du thread d'envoie\n"); //si y a un problème 
                         return EXIT_FAILURE; //fin du programme
                     }
