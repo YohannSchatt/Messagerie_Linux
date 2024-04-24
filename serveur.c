@@ -66,7 +66,7 @@ bool lecture(int dSC,char **msg){
 void envoie(int dSC,char* msg){
     int taille = strlen(msg)+1;
     send(dSC, &taille, sizeof(int), 0);
-    send(dSC, message, taille, 0); 
+    send(dSC, message, taille, 0);
 }
 
 void envoie_everyone(int dSC,char* msg){
