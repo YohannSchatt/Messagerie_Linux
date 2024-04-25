@@ -14,25 +14,33 @@ int  NB_PERSONNE_ACTUELLE = 0;//compteur du nombre de personne connecté
 pthread_mutex_t M1 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au tableau des sockets clients
 pthread_mutex_t M2 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au nombre  des sockets clients
 
-int tabdSC[NB_MAX_PERSONNE+1]; //tableau des sockets des clients
-
 struct Args_Thread { //structure permettant de transférer les arguments dans les différents threads
     int id; //l'id pour retrouver les éléments dans les tableaux
     int dSC; //le socket du client
     char* pseudo; //son pseudo
 };
 
+struct client {
+    int dSC; //socket du client
+    char* pseudo; //son pseudo
+};
+
+struct client tabdSC[NB_MAX_PERSONNE+1]; //tableau des sockets des clients
+
 //Fonction qui prend en paramètre un socket et l'id dans le tableau
 // elle va supprimer le client du tableau puis fermer le socket
 //Entrée : le socket et l'id
 //Sortie : tableau des sockets modifié
 void fin_connexion(int dSC,int id) {
+
     pthread_mutex_lock(&M1); //empêche le tableau d'être accédé pour éviter problème d'exclusion mutuelle
-    tabdSC[id] = -1;
+    tabdSC[id].dSC = -1;
     pthread_mutex_unlock(&M1); //reouvre le tableau
+
     pthread_mutex_lock(&M2); //reouvre le nombre de personne
     NB_PERSONNE_ACTUELLE--;
     pthread_mutex_unlock(&M2); //empêche le nombre de personne présente d'être accédé pour éviter problème d'exclusion mutuelles
+
     shutdown(dSC,2); //ferme le socket
     printf("fermeture\n");
 }
@@ -63,17 +71,144 @@ bool lecture(int dSC,char **msg){
 //Fonction qui envoie le message donnée en paramètre avec le pseudo correspondant au client qu'on a en paramètre grâce au socket
 //Entrée : le socket, le message, et le pseudo
 //Sortie : renvoie rien, le message est envoyé
-void envoie(int dSC,char** msg, char* pseudo){
-    int taillemsg = strlen(*msg)+1; //taille du msg (+1 pour '\0)
+void envoie(int dSC,char* msg){
+    printf("%s\n",msg);
+    int taille = strlen(msg)+1;
+    send(dSC, &taille, sizeof(int), 0);
+    send(dSC, msg, taille, 0);
+}
+
+//Fonction qui envoie message donné en paramètre a tout le monde sauf le client qui a crée le message 
+//Entrée : le socket du client qui envoie le message
+//Sortie : renvoie rien, a envoyé le message à tout le monde
+void envoie_everyone_client(int dSC,char* msg){
+    for(int i = 0;i<NB_MAX_PERSONNE;i++) {
+        pthread_mutex_lock(&M1); //on bloque l'accès au tableau
+        if (tabdSC[i].dSC != -1 && dSC != tabdSC[i].dSC) { //si le socket existe et est différent de celui de notre client alors on envoie le message
+            envoie(tabdSC[i].dSC, msg);
+        }
+        pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
+    }
+}
+
+//Fonction utilisé uniquement par le serveur qui envoie un message donné en paramètre a tout le monde 
+//Entrée : un String (le message)
+//Sortie : renvoie rien, envoie le message à tout le monde
+void envoie_everyone_serveur(char* msg){
+    for(int i = 0;i<NB_MAX_PERSONNE;i++) {
+        pthread_mutex_lock(&M1); //on bloque l'accès au tableau
+        if (tabdSC[i].dSC != -1) { //si le socket existe et est différent de celui de notre client alors on envoie le message
+            envoie(tabdSC[i].dSC, msg);
+        }
+        pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
+    }
+}
+
+//Fonction qui envoie le message donné en paramètre 
+//Entrée : un tableau de dSC qui envoie stocke les sockets des clients qui doivent recevoir le message
+//Sortie : renvoie rien, le message est envoyé au personne dont le socket correspond 
+// void envoie_prive(int* dSC, char* msg){
+//     for(int i = 0;i<NB_MAX_PERSONNE;i++){
+//         pthread_mutex_lock(&M1); //on bloque l'accès au tableau
+//         if (tabdSC[i].dSC != -1 && args.dSC != tabdSC[i].dSC) { //si le socket existe et est différent de celui de notre client alors on envoie le message
+//             envoie(tabdSC[i].dSC, msg);
+//         }
+//         pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
+//     }
+// }
+
+//Fonction qui permet de récupérer le pseudo dans une commande
+//Entrée : l'adresse du msg de la commande, la position de l'espace juste devant le pseudo
+//Sortie : le pseudo de l'utilisateur 
+char* recup_pseudo(char* msg,int pos){
+    char* pseudo = (char*)malloc(16*sizeof(char)); //taille max de 16 pour un pseudo
+    int i = 0;
+    while( i < 16 && msg[pos+i] != ' ' && msg[pos+i] != '\0'){
+        pseudo[i] = msg[pos+i];
+    }
+    return pseudo;
+}
+
+//Fonction qui permet de récupérer le pseudo dans une commande 
+//Entrée : l'adresse du msg de la commande, la position de l'espace juste devant le message
+//Sortie : le message écrit par l'utilisateur 
+char* recup_message(char* msg, int pos){
+    int count = 0;
+    while(msg[pos+count] != '\0'){
+        count++;
+    }
+    char* message = (char*)malloc(count*sizeof(char));
+    for(int i = 0; i < count ; i++){
+        message[i] = msg[pos+i];
+    }
+    return message;
+}
+
+// int protocol(char *msg){
+//     char pos = msg[0];
+//     if (pos = '@'){
+//         if verif_commande(msg,"everyone") {
+//             envoie_all();
+//         }
+//         else if verif_commande(msg,"mp"){
+//             recup_pseudo();
+//             envoie_prive();
+//         }
+//     }
+//     else if (pos = '/') {
+//         if verif_commande(msg,"end") {
+//             fin_thread();
+//         }
+//         else {
+//             envoie_prive();
+//         }
+//     }
+// }
+
+//Fonction qui permet de vérifier la char* entrée par l'utilisateur existe
+bool verif_commande(char* msg,char* msg_commande){
+    bool res = true;
+    int i = 0;
+    if ((strlen(msg)-1) == (strlen(msg_commande))){ //msg a -1 car on a le lanceur de commande devant
+            while (i<strlen(msg_commande) && msg[i] == '\0' && res ) {
+            if (msg[i+1] == msg_commande[i]) { //i+1 car on ne regarde pas le lanceur de commande
+                i++;
+            }
+            else {
+                res = false;
+            }
+        }
+    }
+    return res;
+}
+
+//Cette fonction fusionne le pseudo de l'utilisateur donné en paramètre et le message donné aussi en paramètre
+//Entrée : deux String (un pseudo et un message)
+//Sortie : renvoie l'adresse d'un String avec comme forme "pseudo : message"
+char** creation_msg_client(char* msg, char* pseudo) {
+    int taillemsg = strlen(msg)+1; //taille du msg (+1 pour '\0)
     int taillepseudo = strlen(pseudo);
     char* message = (char*)malloc((taillemsg+taillepseudo+3)*sizeof(char));
+    char** adressemessage = (char**)malloc(sizeof(char*));
+    *adressemessage = message;
     strcat(message,pseudo);
     strcat(message," : ");
-    strcat(message, *msg);
-    int taille = strlen(message);
-    send(dSC, &taille, sizeof(int), 0);
-    send(dSC, message, taille, 0); 
-    free(message);
+    strcat(message, msg);
+    return adressemessage;
+}
+
+char** creation_msg_serveur(char* msg, char* pseudo,char* jointure) {
+    int taillemsg = strlen(msg); 
+    int taillepseudo = strlen(pseudo);
+    int taillejointure = strlen(jointure);
+    char* message = (char*)malloc((taillemsg+taillepseudo+taillejointure+1)*sizeof(char)); //taille du msg (+1 pour '\0)
+    char** adressemessage = (char**)malloc(sizeof(char*));
+    *adressemessage = message;
+    strcat(message,pseudo);
+    strcat(message,jointure);
+    strcat(message,msg);
+    printf("fin de creation msg\n");
+    return adressemessage;
 }
 
 //Cette fonction gère la lecture du message d'un client qui sera ensuite envoyé a tout les clients
@@ -81,21 +216,25 @@ void envoie(int dSC,char** msg, char* pseudo){
 //Sortie : renvoie rien, mais assure la liaison entre les clients tant que le client du socket ne coupe pas la communication
 void lecture_envoie(struct Args_Thread args) {
     bool continu = true; //booléen qui va assurer la boucle tant que la communication n'est pas coupé 
-    char* msg = (char*)malloc(sizeof(char));
-    msg[0] ='\0'; 
+    char* msgrecu = (char*)malloc(sizeof(char));
+    msgrecu[0] ='\0'; 
     while (continu) {
-        continu = lecture(args.dSC, &msg);
+        continu = lecture(args.dSC, &msgrecu);
         if (continu){
-            for(int i = 0;i<NB_MAX_PERSONNE;i++) {
-                pthread_mutex_lock(&M1); //on bloque l'accès au tableau
-                if (tabdSC[i] != -1 && args.dSC != tabdSC[i]) { //si le socket exite et est différent de celui de notre client alors on envoie le message
-                    envoie(tabdSC[i], &msg,args.pseudo);
-                }
-                pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
-            }
+            char** msgcomplet = (char**)malloc(sizeof(char*));
+            msgcomplet = creation_msg_client(msgrecu, args.pseudo);
+            envoie_everyone_client(args.dSC,*msgcomplet);
         }
     }
-    free(msg);
+    free(msgrecu);
+
+    //message de fin de communication
+
+    char** msgcomplet = (char**)malloc(sizeof(char*)); 
+    msgcomplet = creation_msg_serveur("a quitté le serveur",args.pseudo," ");
+    printf("%s\n",*msgcomplet);
+    envoie_everyone_serveur(*msgcomplet);
+
     fin_connexion(args.dSC,args.id); //si communication coupé alors on mets fin au socket
 }
 
@@ -111,7 +250,6 @@ int init_ouverture_connexion(int port) {
     }
     else {
        printf("Socket Créé\n");
-
         struct sockaddr_in ad; // structure des sockets
         ad.sin_family = AF_INET;
         ad.sin_addr.s_addr = INADDR_ANY ;
@@ -123,7 +261,6 @@ int init_ouverture_connexion(int port) {
         }
         else {
             printf("Socket Nommé\n");
-
             if(listen(dS, 7) == -1){  //mets en position d'écoute
                 shutdown(dS,2);
                 fprintf(stderr,"problème à initialiser l'écoute\n");
@@ -131,7 +268,6 @@ int init_ouverture_connexion(int port) {
             }
             else {
                 printf("Mode écoute\n");
-
                 return dS;
             }
         }
@@ -150,14 +286,20 @@ void* choixPseudo(void* args_thread){
 
     pthread_mutex_lock(&M1); //bloque l'accès au tableau
     int i = 0;
-    while(tabdSC[i] != -1){ //si on trouve un slot de libre (qui existe forcément par la vérification fait au préalable)
+    while(tabdSC[i].dSC != -1){ //si on trouve un slot de libre (qui existe forcément par la vérification fait au préalable)
         i = (i + 1)%NB_MAX_PERSONNE;
     }
-    tabdSC[i] = dSC;
+    tabdSC[i].dSC = dSC;
+    tabdSC[i].pseudo = args.pseudo;
+    pthread_mutex_unlock(&M1); //on redonne l'accès
 
     args.id = i; //la position du socket du client dans le tableau
     args.dSC = dSC;
-    pthread_mutex_unlock(&M1); //on redonne l'accès
+
+    char** msgcomplet = (char**)malloc(sizeof(char*));
+    msgcomplet = creation_msg_serveur("a rejoint le serveur",args.pseudo," ");
+    printf("%s\n",*msgcomplet);
+    envoie_everyone_serveur(*msgcomplet);
 
     lecture_envoie(args); //le client va pouvoir commencer a communiquer
     pthread_exit(0);
@@ -169,7 +311,7 @@ void* choixPseudo(void* args_thread){
 void init_connexion(int dS) {
 
     for(int i = 0; i<NB_MAX_PERSONNE;i++) { //initialise le tableau
-        tabdSC[i] = -1;
+        tabdSC[i].dSC = -1;
     }
 
     struct sockaddr_in aC ; //structure du socket
@@ -208,10 +350,11 @@ void init_connexion(int dS) {
 }
 
 void ArretForce(int n) {
-    printf("Coupure du programme\n");
+    printf("Coupure du programme");
+    envoie_everyone_serveur("fermeture du serveur\n");
     pthread_mutex_lock(&M1);
     for (int i = 0;i<NB_MAX_PERSONNE+1;i++) {
-        shutdown(tabdSC[i],2);
+        shutdown(tabdSC[i].dSC,2);
     }
     pthread_mutex_unlock(&M1);
     exit(0);
