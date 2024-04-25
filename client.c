@@ -157,7 +157,7 @@ int main(int argc, char* argv[]){
         aS.sin_port = htons(atoi(argv[2])) ;
         socklen_t lgA = sizeof(struct sockaddr_in) ;
         if (connect(dS, (struct sockaddr *) &aS, lgA) == -1) { //se connecte au serveur
-            fin(dS);
+            shutdown(dS,2);
             fprintf(stderr, "Erreur lors de la création de la connexion\n");
             return EXIT_FAILURE; //fin du programme
         }
@@ -183,13 +183,13 @@ int main(int argc, char* argv[]){
                     choixPseudo(dS); //l'utilisateur donne son pseudo
 
                     if (pthread_create(&th_recept, NULL, reception, (void*)&args_recept) == -1) { //lance le thread de réception
-                        fin(dS);
+                        shutdown(dS,2);
                         fprintf(stderr, "Erreur lors de la création du thread de reception\n"); //si y a un problème 
                         return EXIT_FAILURE; //fin du programme
                     }
 
                     if (pthread_create(&th_envoie, NULL, propagation, (void*)&args_envoie) == -1) { //lance le thread propagation
-                        fin(dS);
+                        shutdown(dS,2);
                         fprintf(stderr, "Erreur lors de la création du thread d'envoie\n"); //si y a un problème 
                         return EXIT_FAILURE; //fin du programme
                     }
@@ -201,7 +201,7 @@ int main(int argc, char* argv[]){
                     printf("le serveur est plein");
                 }     
             }
-            fin(dS); //met fin au socket
+            shutdown(dS,2);//met fin au socket
 
             printf("fin du programme\n");
         }
