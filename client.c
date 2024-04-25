@@ -94,7 +94,6 @@ void* reception(void* args_thread) {
         pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
         continu = lecture(args.dS,args.continu);
     }
-    printf("fin reception");
     pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
     *args.continu = false;
     pthread_mutex_unlock(&M1); //on redonne l'accès
@@ -114,7 +113,6 @@ void* propagation(void* args_thread){
         pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
         continu = envoie(args.dS,&msg); 
     }
-    printf("fin propagation");
     pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
     *args.continu = false; 
     pthread_mutex_unlock(&M1); //on redonne l'accès
@@ -130,7 +128,7 @@ void choixPseudo(int dS){
     printf("Choix de votre pseudo : "); 
     fgets(msg,16,stdin); //l'utilisateur écrit son pseudo
     char* pos = strchr(msg,'\n'); //cherche '\n' mis par défaut par fgets
-    *pos = '\0'; //le change en '\0'
+    *pos = '\0'; 
     int taille = strlen(msg)+1; // +1 pour l'envoie de '\0'
     if(send(dS, &taille, sizeof(int), 0) == -1){ //envoie la taille
         ArretForce(0);
