@@ -19,11 +19,6 @@ struct Args_Thread { //structure permettant de transférer les arguments dans le
     bool* continu; //le booléen qui permet de stopper les 2 threads quand l'utilisateur ferme la connexion
 };
 
-//mets fin au programme et ferme la communication avec le serveur
-void fin(int dS) {
-    shutdown(dS,2);
-}
-
 //Fonction qui prend un paramètre un signal et qui stop le programme proprement
 void ArretForce(int n) {
     printf("Coupure du programme\n");
@@ -31,7 +26,7 @@ void ArretForce(int n) {
         int taille = strlen("fin")+1;
         send(d,&taille,sizeof(int),0);
         send(d,"fin",taille,0);
-        fin(d);
+        shutdown(d,2);
     }
     exit(0);
 }

@@ -72,7 +72,6 @@ bool lecture(int dSC,char **msg){
 //Entrée : le socket, le message, et le pseudo
 //Sortie : renvoie rien, le message est envoyé
 void envoie(int dSC,char* msg){
-    printf("%s\n",msg);
     int taille = strlen(msg)+1;
     send(dSC, &taille, sizeof(int), 0);
     send(dSC, msg, taille, 0);
@@ -207,7 +206,6 @@ char** creation_msg_serveur(char* msg, char* pseudo,char* jointure) {
     strcat(message,pseudo);
     strcat(message,jointure);
     strcat(message,msg);
-    printf("fin de creation msg\n");
     return adressemessage;
 }
 
@@ -232,7 +230,6 @@ void lecture_envoie(struct Args_Thread args) {
 
     char** msgcomplet = (char**)malloc(sizeof(char*)); 
     msgcomplet = creation_msg_serveur("a quitté le serveur",args.pseudo," ");
-    printf("%s\n",*msgcomplet);
     envoie_everyone_serveur(*msgcomplet);
 
     fin_connexion(args.dSC,args.id); //si communication coupé alors on mets fin au socket
@@ -298,7 +295,6 @@ void* choixPseudo(void* args_thread){
 
     char** msgcomplet = (char**)malloc(sizeof(char*));
     msgcomplet = creation_msg_serveur("a rejoint le serveur",args.pseudo," ");
-    printf("%s\n",*msgcomplet);
     envoie_everyone_serveur(*msgcomplet);
 
     lecture_envoie(args); //le client va pouvoir commencer a communiquer
