@@ -73,13 +73,14 @@ bool lecture(int dSC,char **msg){
 //Sortie : renvoie rien, le message est envoyé
 void envoie(int dSC,char* msg){
     int taille = strlen(msg)+1;
-    send(dSC, &taille, sizeof(int), 0);
-    send(dSC, msg, taille, 0);
+    if(send(dSC, &taille, sizeof(int), 0) != -1){
+        send(dSC, msg, taille, 0);
+    }
 }
 
 //Fonction qui envoie message donné en paramètre a tout le monde sauf le client qui a crée le message 
 //Entrée : le socket du client qui envoie le message
-//Sortie : renvoie rien, a envoyé le message à tout le monde
+//Sortie : renvoie rien, a envoyé le message à tout le monde sauf le client a l'origine du message
 void envoie_everyone_client(int dSC,char* msg){
     for(int i = 0;i<NB_MAX_PERSONNE;i++) {
         pthread_mutex_lock(&M1); //on bloque l'accès au tableau
@@ -218,20 +219,24 @@ void lecture_envoie(struct Args_Thread args) {
     msgrecu[0] ='\0'; 
     while (continu) {
         continu = lecture(args.dSC, &msgrecu);
+        printf("%s\n",msgrecu);
         if (continu){
+            printf("%s\n",msgrecu);
             char** msgcomplet = (char**)malloc(sizeof(char*));
             msgcomplet = creation_msg_client(msgrecu, args.pseudo);
             envoie_everyone_client(args.dSC,*msgcomplet);
         }
     }
+    printf("coucou\n");
     free(msgrecu);
 
     //message de fin de communication
 
     char** msgcomplet = (char**)malloc(sizeof(char*)); 
+        printf("coucou2\n");
     msgcomplet = creation_msg_serveur("a quitté le serveur",args.pseudo," ");
-    envoie_everyone_serveur(*msgcomplet);
-
+    envoie_everyone_client(args.dSC,*msgcomplet);
+        printf("coucou3\n");
     fin_connexion(args.dSC,args.id); //si communication coupé alors on mets fin au socket
 }
 

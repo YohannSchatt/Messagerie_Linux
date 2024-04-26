@@ -12,7 +12,7 @@ pthread_t th_envoie,th_recept; //création des 2 threads, celui qui va lire les 
 
 pthread_mutex_t M1 = PTHREAD_MUTEX_INITIALIZER; //création du mutex qui permet d'assurer l'exclusion mutuelle pour la variable continu
 
-int d = -1; //variable qui stocke dS pour l'arrêt forcé du serveur
+int d = -1; //variable qui stocke dS (quand il est défini) pour l'arrêt forcé du serveur
 
 struct Args_Thread { //structure permettant de transférer les arguments dans les différents threads
     int dS; //le socket du serveur
@@ -25,7 +25,7 @@ void ArretForce(int n) {
     if (d != -1){
         int taille = strlen("fin")+1;
         send(d,&taille,sizeof(int),0);
-        send(d,"fin",taille,0);
+        send(d,"fin\0",taille,0);
         shutdown(d,2);
     }
     exit(0);
