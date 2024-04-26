@@ -9,7 +9,7 @@
 #include <pthread.h>
 #include <signal.h>
 
-#define NB_MAX_PERSONNE 3 //limite max de personne sur le serveur
+#define NB_MAX_PERSONNE 100 //limite max de personne sur le serveur
 int  NB_PERSONNE_ACTUELLE = 0;//compteur du nombre de personne connecté
 
 pthread_mutex_t M1 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au tableau des sockets clients
