@@ -1,3 +1,4 @@
+//BUT DU PROG : Ce programme est un serveur de chat qui accepte les connexions de deux clients simultanément et facilite la communication entre eux.
 #include <stdio.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>

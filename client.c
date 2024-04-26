@@ -1,3 +1,5 @@
+// BUT DU PROG : Ce programme, client.c, est un client TCP simple permettant d'échanger des messages avec un serveur distant
+
 #include <stdio.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -206,4 +208,5 @@ int main(int argc, char* argv[]){
             printf("fin du programme\n");
         }
     }
+    return 0;
 }
