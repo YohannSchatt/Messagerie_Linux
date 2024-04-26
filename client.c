@@ -8,124 +8,202 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <signal.h>
 
-pthread_t th_envoie, th_recept;
+pthread_t th_envoie,th_recept; //création des 2 threads, celui qui va lire les messages reçu et celui qui envoie son message au serveur
 
-// Structure pour les arguments du thread
-struct Args_Thread {
-    int dS;             // Descripteur de socket
-    bool *continu;      // Pointeur vers un booléen pour indiquer si la communication continue
-    char *msg;          // Pointeur vers un tampon de message
+pthread_mutex_t M1 = PTHREAD_MUTEX_INITIALIZER; //création du mutex qui permet d'assurer l'exclusion mutuelle pour la variable continu
+
+int d = -1; //variable qui stocke dS (quand il est défini) pour l'arrêt forcé du serveur
+
+struct Args_Thread { //structure permettant de transférer les arguments dans les différents threads
+    int dS; //le socket du serveur
+    bool* continu; //le booléen qui permet de stopper les 2 threads quand l'utilisateur ferme la connexion
 };
 
-// Fonction de fermeture de la connexion
-void fin(int dS, char **msg) {
-    shutdown(dS, 2);    // Fermeture du socket
-    free(msg[0]);       // Libération de la mémoire allouée pour les messages
-    free(msg[1]);
-    free(msg);
-    printf("Fin du programme");
+//Fonction qui prend un paramètre un signal et qui stop le programme proprement
+void ArretForce(int n) {
+    printf("Coupure du programme\n");
+    if (d != -1){
+        shutdown(d,2);
+    }
+    exit(0);
 }
 
-// Fonction pour lire un message du serveur
-bool lecture(int dS, char **msg) {
+//Fonction de lecture des messages et affiche les messages reçu des autres clients
+//Entrée : le socket du serveur, le booléen qui gère l'exécution des deux threads
+//Sortie : renvoie rien, affiche le message
+bool lecture(int dS, bool* continu){ 
     bool res = true;
     int taille;
-    recv(dS, &taille, sizeof(int), 0);    // Réception de la taille du message
-    recv(dS, *msg, taille, 0);             // Réception du message
-    if ((strcmp(*msg, "fin") == 0)) {      // Vérification si le message est "fin"
+    int err = recv(dS,&taille, sizeof(int), 0); //reception de la taille du message
+    if (err == 0 || err == -1) {
         res = false;
     }
-    puts(*msg);                             // Affichage du message reçu
+    else {
+        char* msg = (char*)malloc(taille*sizeof(char));
+        err = recv(dS, msg,taille, 0); //reçoit le message
+        if (err == 0 || err == -1){
+            res = false;
+        }
+        else {
+            pthread_mutex_lock(&M1); //on bloque l'accès au booléen car il peut être changé pendant la lecture
+            if (*continu){
+                puts(msg);
+            }
+            pthread_mutex_unlock(&M1); //on réouvre l'accès
+        }
+        free(msg);
+    }
     return res;
 }
 
-// Fonction pour envoyer un message au serveur
-bool envoie(int dS, char **msg) {
+//Fonction qui permet l'envoie des messages par l'utlisateur
+//Entrée : le socket du serveur, le message
+//Sortie : un booléen si il reçoit "fin" alors false, sinon true 
+bool envoie(int dS, char** msg){
     bool res = true;
-    printf("Ecrit un message : ");
-    fgets(*msg, 128, stdin);                // Lecture du message depuis l'entrée standard
-    char *pos = strchr(*msg, '\n');
-    *pos = '\0';
-    if ((strcmp(*msg, "fin") == 0)) {      // Vérification si le message est "fin"
+    fgets(*msg,128,stdin);
+    char *pos = strchr(*msg,'\n'); //cherche le '\n' 
+    *pos = '\0'; // le change en '\0' pour la fin du message et la cohérence de l'affichage
+    if(strcmp(*msg,"fin") == 0){
         res = false;
     }
-    int taille = strlen(*msg) + 1;
-    send(dS, &taille, sizeof(int), 0);     // Envoi de la taille du message
-    send(dS, *msg, taille, 0);             // Envoi du message
+    int taille = strlen(*msg)+1; //on récupère la taille du message (+1 pour le caractère de '\0')
+    if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == 0){ //envoie de la taille et le message
+        res = false;
+    }
     return res;
 }
 
-// Fonction du thread pour la réception de messages du serveur
-void *reception(void *args_thread) {
-    struct Args_Thread *args = (struct Args_Thread *) args_thread;
-    while (*(args->continu)) {
-        *(args->continu) = lecture(args->dS, &(args->msg));
+//Fonction qui permet de réceptionner tout les messages
+//Entrée : une structure qui sert d'argument pour que la fonction passe dans le thread et reçoit les données qui lui sont utiles
+//Sortie : renvoie rien, gère la reception des messages
+void* reception(void* args_thread) {
+    struct Args_Thread args = *((struct Args_Thread*)args_thread); //récupère les arguments
+    bool continu = *(args.continu);
+    while(continu){ 
+        pthread_mutex_lock(&M1); //bloque l'accès au booléen (car peut être écrit pendant sa lecture)
+        continu = *(args.continu);
+        pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
+        continu = lecture(args.dS,args.continu);
     }
-    pthread_exit(0);
+    pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
+    *args.continu = false;
+    pthread_mutex_unlock(&M1); //on redonne l'accès
+    pthread_exit(0); 
 }
 
-// Fonction du thread pour l'envoi de messages au serveur
-void *propagation(void *args_thread) {
-    struct Args_Thread *args = (struct Args_Thread *) args_thread;
-    while (*(args->continu)) {
-        *(args->continu) = envoie(args->dS, &(args->msg));
+//Fonction qui envoie les messages 
+//Entrée : une structure qui sert d'argument pour que la fonction passe dans le thread et reçoit les données qui lui sont utiles
+//Sortie : renvoie rien, gère l'envoie des messages
+void* propagation(void* args_thread){
+    char* msg = (char*)malloc(128*sizeof(char)); //alloue la taille du message (128 max car fgets à 128 max)
+    struct Args_Thread args = *((struct Args_Thread*)args_thread); //récupère les arguments
+    bool continu = true;
+    while(continu){
+        pthread_mutex_lock(&M1); //bloque l'accès au booléen (car peut être écrit pendant sa lecture)
+        continu = *(args.continu); //met à jour le booléen si modifié par la fonction propagation
+        pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
+        continu = envoie(args.dS,&msg); 
     }
-    pthread_exit(0);
+    pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
+    *args.continu = false; 
+    pthread_mutex_unlock(&M1); //on redonne l'accès
+    free(msg); 
+    pthread_exit(0); 
 }
 
-//-----------------------------------------MAIN-------------------------------------------------
+//Fonction qui permet a l'utilisateur de sélectionner son pseudo
+//Entrée : le socket du serveur
+//Sortie : renvoie rien, envoie le pseudo au serveur
+void choixPseudo(int dS){
+    char* msg = (char*)malloc(16*sizeof(char)); //le message alloué a 16 max (taille du pseudo autorisé)
+    printf("Choix de votre pseudo : "); 
+    fgets(msg,16,stdin); //l'utilisateur écrit son pseudo
+    char* pos = strchr(msg,'\n'); //cherche '\n' mis par défaut par fgets
+    *pos = '\0'; 
+    int taille = strlen(msg)+1; // +1 pour l'envoie de '\0'
+    if(send(dS, &taille, sizeof(int), 0) == -1){ //envoie la taille
+        ArretForce(0);
+    } 
+    else {
+        if (send(dS, msg, taille, 0) == -1) { //envoie le message
+            ArretForce(0);
+        }
+    }
+    free(msg);
+}
 
-int main(int argc, char *argv[]) {
-    // Vérification des arguments de la ligne de commande
-    if (argc != 3) {
-        printf("./client IP Port");
-    } else {
+//--------------------------------------main--------------------------------------------
+//Fonction principale du programme
+//pour lancer le programme il faut écrite : ./client "IP" "Port"
+int main(int argc, char* argv[]){
+
+    signal(SIGINT, ArretForce);
+
+    if (argc != 3) { //si le programme n'a pas 2 arguments
+        printf("./client IP Port\n");
+    }
+    else{
         printf("Début programme\n");
-
-        // Création du socket
-        int dS = socket(PF_INET, SOCK_STREAM, 0);
+        int dS = socket(PF_INET, SOCK_STREAM, 0); //crée le socket
+        d = dS;
         printf("Socket Créé\n");
-
-        // Configuration de l'adresse du serveur
         struct sockaddr_in aS;
         aS.sin_family = AF_INET;
-        inet_pton(AF_INET, argv[1], &(aS.sin_addr));
-        aS.sin_port = htons(atoi(argv[2]));
-        socklen_t lgA = sizeof(struct sockaddr_in);
-        connect(dS, (struct sockaddr *) &aS, lgA);
-        printf("Socket Connecté\n");
+        inet_pton(AF_INET,argv[1],&(aS.sin_addr)) ; 
+        aS.sin_port = htons(atoi(argv[2])) ;
+        socklen_t lgA = sizeof(struct sockaddr_in) ;
+        if (connect(dS, (struct sockaddr *) &aS, lgA) == -1) { //se connecte au serveur
+            shutdown(dS,2);
+            fprintf(stderr, "Erreur lors de la création de la connexion\n");
+            return EXIT_FAILURE; //fin du programme
+        }
+        else {
+            printf("Socket Connecté\n");
+            int accept;
+            int err = recv(dS,&accept,sizeof(int),0); 
+            if( err != -1 || err != 0) {
+                if (accept == 0) {
+                    bool* continu = (bool*)malloc(sizeof(bool)); //booléen utilisé dans les deux threads
+                    *continu = true;
 
-        // Allocation de mémoire pour les variables de contrôle et les tampons de message
-        bool *continu = (bool *) malloc(sizeof(bool));
-        *continu = true;
-        char *msg_envoie = malloc(128 * sizeof(char));
-        char *msg_lecture = malloc(128 * sizeof(char));
+                    struct Args_Thread args_recept;
+                    args_recept.dS = dS;
+                    args_recept.continu = continu;
 
-        // Initialisation des arguments des threads
-        struct Args_Thread *args_recept;
-        args_recept->dS = dS;
-        args_recept->continu = continu;
-        args_recept->msg = msg_lecture;
+                    struct Args_Thread args_envoie;
+                    args_envoie.dS = dS;
+                    args_envoie.continu = continu;
 
-        struct Args_Thread *args_envoie;
-        args_envoie->dS = dS;
-        args_envoie->continu = continu;
-        args_envoie->msg = msg_envoie;
+                    // Les deux structures sont différents pour éviter des problèmes de concurrence même si ils prennent les même données 
+            
+                    choixPseudo(dS); //l'utilisateur donne son pseudo
 
-        // Création des threads pour la réception et l'envoi de messages
-        pthread_create(&th_recept, NULL, reception, args_recept);
-        pthread_create(&th_envoie, NULL, propagation, args_envoie);
+                    if (pthread_create(&th_recept, NULL, reception, (void*)&args_recept) == -1) { //lance le thread de réception
+                        shutdown(dS,2);
+                        fprintf(stderr, "Erreur lors de la création du thread de reception\n"); //si y a un problème 
+                        return EXIT_FAILURE; //fin du programme
+                    }
 
-        // Attente de la fin des threads
-        pthread_join(th_recept, NULL);
-        pthread_join(th_envoie, NULL);
+                    if (pthread_create(&th_envoie, NULL, propagation, (void*)&args_envoie) == -1) { //lance le thread propagation
+                        shutdown(dS,2);
+                        fprintf(stderr, "Erreur lors de la création du thread d'envoie\n"); //si y a un problème 
+                        return EXIT_FAILURE; //fin du programme
+                    }
+                    
+                    pthread_join(th_recept,NULL); //attend la fin du thread de réception
+                    pthread_join(th_envoie,NULL); //attend la fin du thread de propagation
+                }
+                else {
+                    printf("le serveur est plein\n");
+                }     
+            }
+            shutdown(dS,2);//met fin au socket
 
-        // Libération de la mémoire et fermeture de la connexion
-        char **msg = (char **) malloc(2 * sizeof(char *));
-        msg[0] = msg_envoie;
-        msg[1] = msg_lecture;
-        fin(dS, msg);
+            printf("fin du programme\n");
+        }
     }
     return 0;
 }
