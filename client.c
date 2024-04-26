@@ -25,9 +25,6 @@ struct Args_Thread { //structure permettant de transférer les arguments dans le
 void ArretForce(int n) {
     printf("Coupure du programme\n");
     if (d != -1){
-        int taille = strlen("fin")+1;
-        send(d,&taille,sizeof(int),0);
-        send(d,"fin\0",taille,0);
         shutdown(d,2);
     }
     exit(0);
@@ -200,7 +197,7 @@ int main(int argc, char* argv[]){
                     pthread_join(th_envoie,NULL); //attend la fin du thread de propagation
                 }
                 else {
-                    printf("le serveur est plein");
+                    printf("le serveur est plein\n");
                 }     
             }
             shutdown(dS,2);//met fin au socket

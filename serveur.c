@@ -9,7 +9,7 @@
 #include <pthread.h>
 #include <signal.h>
 
-#define NB_MAX_PERSONNE 100 //limite max de personne sur le serveur
+#define NB_MAX_PERSONNE 3 //limite max de personne sur le serveur
 int  NB_PERSONNE_ACTUELLE = 0;//compteur du nombre de personne connecté
 
 pthread_mutex_t M1 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au tableau des sockets clients
@@ -52,9 +52,11 @@ void fin_connexion(int dSC,int id) {
 bool lecture(int dSC,char **msg){
     bool res = true;
     int taille;
-    if (recv(dSC,&taille, sizeof(int), 0) != -1){ //communication de la taille
+    int err = recv(dSC,&taille, sizeof(int), 0);
+    if (err != -1 && err != 0){ //communication de la taille
         *msg = (char*)malloc(taille*sizeof(char));
-        if (recv(dSC,*msg, taille, 0) != -1){ //reçoit le message
+        err = recv(dSC,*msg, taille, 0);
+        if (err != -1 && err != 0){ //reçoit le message
             if((strcmp(*msg,"fin") == 0)){ //si on reçoit fin alors on change le booléen pour couper la communication
                 res = false;
             }
@@ -183,21 +185,9 @@ bool verif_commande(char* msg,char* msg_commande){
     return res;
 }
 
-//Cette fonction fusionne le pseudo de l'utilisateur donné en paramètre et le message donné aussi en paramètre
-//Entrée : deux String (un pseudo et un message)
-//Sortie : renvoie l'adresse d'un String avec comme forme "pseudo : message"
-char** creation_msg_client(char* msg, char* pseudo) {
-    int taillemsg = strlen(msg)+1; //taille du msg (+1 pour '\0)
-    int taillepseudo = strlen(pseudo);
-    char* message = (char*)malloc((taillemsg+taillepseudo+3)*sizeof(char));
-    char** adressemessage = (char**)malloc(sizeof(char*));
-    *adressemessage = message;
-    strcat(message,pseudo);
-    strcat(message," : ");
-    strcat(message, msg);
-    return adressemessage;
-}
-
+//Cette fonction fusionne le pseudo de la personne concerné, et le message principale avec des caractères qui les joints
+//Entrée : trois String (un pseudo, un message, et un la jointure)
+//Sortie : renvoie l'adresse d'un String avec comme forme "pseudo jointure message"
 char** creation_msg_serveur(char* msg, char* pseudo,char* jointure) {
     int taillemsg = strlen(msg); 
     int taillepseudo = strlen(pseudo);
@@ -211,6 +201,14 @@ char** creation_msg_serveur(char* msg, char* pseudo,char* jointure) {
     return adressemessage;
 }
 
+//Cette fonction fusionne le pseudo de l'utilisateur donné en paramètre et le message donné aussi en paramètre
+//Entrée : deux String (un pseudo et un message)
+//Sortie : renvoie l'adresse d'un String avec comme forme "pseudo : message"
+char** creation_msg_client(char* msg, char* pseudo) {
+    return creation_msg_serveur(msg,pseudo," : ");
+}
+
+
 //Cette fonction gère la lecture du message d'un client qui sera ensuite envoyé a tout les clients
 //Entrée : une struct d'argument pour le thread, contenant le socket du client, et le pseudo et l'id dans le tableau des sockets client
 //Sortie : renvoie rien, mais assure la liaison entre les clients tant que le client du socket ne coupe pas la communication
@@ -220,24 +218,19 @@ void lecture_envoie(struct Args_Thread args) {
     msgrecu[0] ='\0'; 
     while (continu) {
         continu = lecture(args.dSC, &msgrecu);
-        printf("%s\n",msgrecu);
         if (continu){
-            printf("%s\n",msgrecu);
             char** msgcomplet = (char**)malloc(sizeof(char*));
             msgcomplet = creation_msg_client(msgrecu, args.pseudo);
             envoie_everyone_client(args.dSC,*msgcomplet);
         }
     }
-    printf("coucou\n");
     free(msgrecu);
 
     //message de fin de communication
 
     char** msgcomplet = (char**)malloc(sizeof(char*)); 
-        printf("coucou2\n");
     msgcomplet = creation_msg_serveur("a quitté le serveur",args.pseudo," ");
     envoie_everyone_client(args.dSC,*msgcomplet);
-        printf("coucou3\n");
     fin_connexion(args.dSC,args.id); //si communication coupé alors on mets fin au socket
 }
 
@@ -317,9 +310,7 @@ void init_connexion(int dS) {
     }
 
     struct sockaddr_in aC ; //structure du socket
-    socklen_t lg = sizeof(struct sockaddr_in) ;
-
-    char msg[15] ="serveur plein";   
+    socklen_t lg = sizeof(struct sockaddr_in) ;  
 
     while(true){ //continue a s'éxecuter 
 
@@ -329,7 +320,7 @@ void init_connexion(int dS) {
         }
         else {
             pthread_mutex_lock(&M2); //bloque l'accès au compteur du nombre de personne
-            if (NB_PERSONNE_ACTUELLE < NB_MAX_PERSONNE-1){
+            if (NB_PERSONNE_ACTUELLE < NB_MAX_PERSONNE){
                 
                 int a = 0;
                 send(dSC, &a, sizeof(int), 0);
