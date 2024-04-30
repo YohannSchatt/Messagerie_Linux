@@ -62,12 +62,7 @@ bool lecture(int dSC,char **msg){
     if (err != -1 && err != 0){ //communication de la taille
         *msg = (char*)malloc(taille*sizeof(char));
         err = recv(dSC,*msg, taille, 0);
-        if (err != -1 && err != 0){ //reçoit le message
-            if((strcmp(*msg,"fin") == 0)){ //si on reçoit fin alors on change le booléen pour couper la communication
-                res = false;
-            }
-        }
-        else {
+        if (err == -1 && err == 0){ //reçoit le message
             res = false;
         }
     }
@@ -91,26 +86,38 @@ void envoie(int dSC,char* msg){
 //Entrée : le socket du client qui envoie le message
 //Sortie : renvoie rien, a envoyé le message à tout le monde sauf le client a l'origine du message
 void envoie_everyone_client(int dSC,char* msg){
+    pthread_mutex_lock(&M1); //on bloque l'accès au tableau
     for(int i = 0;i<NB_MAX_PERSONNE;i++) {
-        pthread_mutex_lock(&M1); //on bloque l'accès au tableau
         if (tabdSC[i].dSC != -1 && dSC != tabdSC[i].dSC) { //si le socket existe et est différent de celui de notre client alors on envoie le message
             envoie(tabdSC[i].dSC, msg);
         }
-        pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
     }
+    pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
 }
 
 //Fonction utilisé uniquement par le serveur qui envoie un message donné en paramètre a tout le monde 
 //Entrée : un String (le message)
 //Sortie : renvoie rien, envoie le message à tout le monde
 void envoie_everyone_serveur(char* msg){
+    pthread_mutex_lock(&M1); //on bloque l'accès au tableau
     for(int i = 0;i<NB_MAX_PERSONNE;i++) {
-        pthread_mutex_lock(&M1); //on bloque l'accès au tableau
         if (tabdSC[i].dSC != -1) { //si le socket existe et est différent de celui de notre client alors on envoie le message
             envoie(tabdSC[i].dSC, msg);
         }
-        pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
     }
+    pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
+}
+
+void envoie_prive_client(char* msg,char* pseudo,struct mem_Thread args){
+    int i = 0;
+    bool envoye = false;
+    pthread_mutex_lock(&M1); //on bloque l'accès au tableau
+    while (i<NB_MAX_PERSONNE && !envoye){
+        if(tabdSC[i].dSC && tabdSC[i].pseudo == pseudo){
+            envoie(tabdSC[i].dSC,msg);
+        }
+    }
+    pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
 }
 
 //Fonction qui envoie le message donné en paramètre 
@@ -153,27 +160,6 @@ char* recup_message(char* msg, int pos){
     return message;
 }
 
-// int protocol(char *msg){
-//     char pos = msg[0];
-//     if (pos = '@'){
-//         if verif_commande(msg,"everyone") {
-//             envoie_all();
-//         }
-//         else if verif_commande(msg,"mp"){
-//             recup_pseudo();
-//             envoie_prive();
-//         }
-//     }
-//     else if (pos = '/') {
-//         if verif_commande(msg,"end") {
-//             fin_thread();
-//         }
-//         else {
-//             envoie_prive();
-//         }
-//     }
-// }
-
 //Fonction qui permet de vérifier la char* entrée par l'utilisateur existe
 bool verif_commande(char* msg,char* msg_commande){
     bool res = true;
@@ -210,8 +196,30 @@ char** creation_msg_serveur(char* msg, char* pseudo,char* jointure) {
 //Cette fonction fusionne le pseudo de l'utilisateur donné en paramètre et le message donné aussi en paramètre
 //Entrée : deux String (un pseudo et un message)
 //Sortie : renvoie l'adresse d'un String avec comme forme "pseudo : message"
-char** creation_msg_client(char* msg, char* pseudo) {
+char** creation_msg_client_public(char* msg, char* pseudo) {
     return creation_msg_serveur(msg,pseudo," : ");
+}
+
+char** creation_msg_client_prive(char* msg, char* pseudo) {
+    return creation_msg_serveur(msg,pseudo," : (Message privé)");
+}
+
+
+bool protocol(char *msg, struct mem_Thread args){
+    char** message = (char**)malloc(sizeof(char*)); 
+    bool res = true;
+    if (msg[0] == '@'){
+        message = creation_msg_client_prive(recup_message(msg,strlen(args.pseudo)+2),args.pseudo)
+        envoie_prive_client(*message,recup_pseudo(msg, 2),args);
+    }
+    else if (strcmp("/fin",msg) == 0) {
+        res = false;
+    }
+    else {
+        message = creation_msg_client_public(msg,args.pseudo);
+        envoie_everyone_client(args.dSC,*message);
+    }
+    return res;
 }
 
 
@@ -223,11 +231,9 @@ void lecture_envoie(struct mem_Thread args) {
     char* msgrecu = (char*)malloc(sizeof(char));
     msgrecu[0] ='\0'; 
     while (continu) {
-        continu = lecture(args.dSC, &msgrecu);
+        continu = lecture(args.dSC, &msgrecu); //cas d'erreur de l'envoi, change la valeur de continu
         if (continu){
-            char** msgcomplet = (char**)malloc(sizeof(char*));
-            msgcomplet = creation_msg_client(msgrecu, args.pseudo);
-            envoie_everyone_client(args.dSC,*msgcomplet);
+            continu = protocol(msgrecu,args);
         }
     }
     free(msgrecu);
