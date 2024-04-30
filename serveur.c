@@ -15,15 +15,21 @@ int  NB_PERSONNE_ACTUELLE = 0;//compteur du nombre de personne connecté
 pthread_mutex_t M1 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au tableau des sockets clients
 pthread_mutex_t M2 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au nombre  des sockets clients
 
-struct Args_Thread { //structure permettant de transférer les arguments dans les différents threads
+struct mem_Thread { //structure permettant de transférer les arguments dans les différents threads
     int id; //l'id pour retrouver les éléments dans les tableaux
     int dSC; //le socket du client
     char* pseudo; //son pseudo
 };
 
+struct Args_Thread {
+    int id; //l'id pour retrouver les éléments dans les tableaux
+    int dSC; //le socket du client
+};
+
 struct client {
     int dSC; //socket du client
     char* pseudo; //son pseudo
+    pthread_t thread; //son thread
 };
 
 struct client tabdSC[NB_MAX_PERSONNE+1]; //tableau des sockets des clients
@@ -212,7 +218,7 @@ char** creation_msg_client(char* msg, char* pseudo) {
 //Cette fonction gère la lecture du message d'un client qui sera ensuite envoyé a tout les clients
 //Entrée : une struct d'argument pour le thread, contenant le socket du client, et le pseudo et l'id dans le tableau des sockets client
 //Sortie : renvoie rien, mais assure la liaison entre les clients tant que le client du socket ne coupe pas la communication
-void lecture_envoie(struct Args_Thread args) {
+void lecture_envoie(struct mem_Thread args) {
     bool continu = true; //booléen qui va assurer la boucle tant que la communication n'est pas coupé 
     char* msgrecu = (char*)malloc(sizeof(char));
     msgrecu[0] ='\0'; 
@@ -270,27 +276,51 @@ int init_ouverture_connexion(int port) {
     }
 }
 
-void* choixPseudo(void* args_thread){
-    int dSC = *((int*)args_thread); //le socket client
+bool verif_pseudo(char* pseudo){
+    bool res = true;
+    int i = 0;
+    while (i<NB_MAX_PERSONNE && res){
+        if(tabdSC[i].dSC != -1 && strcmp(tabdSC[i].pseudo,pseudo) == 0){
+            res = false;
+        }
+        i++;
+    }
+    return res;
+}
 
-    struct Args_Thread args; //crée la stucture permettant de mettre en des arguments a la fonction envoie_lecture
+void* choixPseudo(void* args_thread){
+    struct Args_Thread th = *((struct Args_Thread*)args_thread); //le socket client
+
+    struct mem_Thread args; //crée la stucture permettant de mettre en des arguments a la fonction envoie_lecture
 
     int taille;
-    recv(dSC,&taille, sizeof(int), 0); //reçoit la taille du message
-    args.pseudo = (char*)malloc(taille*sizeof(char)); 
-    recv(dSC, args.pseudo, taille, 0); //reçoit le message
 
-    pthread_mutex_lock(&M1); //bloque l'accès au tableau
-    int i = 0;
-    while(tabdSC[i].dSC != -1){ //si on trouve un slot de libre (qui existe forcément par la vérification fait au préalable)
-        i = (i + 1)%NB_MAX_PERSONNE;
+    bool continu = true;
+
+    while(continu){
+        recv(th.dSC,&taille, sizeof(int), 0); //reçoit la taille du message
+        args.pseudo = (char*)malloc(taille*sizeof(char)); 
+        recv(th.dSC, args.pseudo, taille, 0); //reçoit le message
+        char* pos = (char*)malloc(sizeof(char));
+        pos = strchr(args.pseudo,' ');
+        if (strlen(args.pseudo)> 0 && args.pseudo[0] != ' '){ //vérifie si le premier caractère n'est pas un espace
+            if (pos != NULL){ //propriété de la fonction strchr renvoie NULL si il n'y a pas le caratère demandé
+                *pos = '\0';
+            }
+            if (verif_pseudo(args.pseudo)){
+                continu = false;
+            }
+        }
+        send(th.dSC,&continu, sizeof(bool), 0);
     }
-    tabdSC[i].dSC = dSC;
-    tabdSC[i].pseudo = args.pseudo;
-    pthread_mutex_unlock(&M1); //on redonne l'accès
 
-    args.id = i; //la position du socket du client dans le tableau
-    args.dSC = dSC;
+
+
+    args.id = th.id; //la position du socket du client dans le tableau
+    args.dSC = th.dSC;
+
+    tabdSC[args.id].dSC = args.dSC;
+    tabdSC[args.id].pseudo = args.pseudo; 
 
     char** msgcomplet = (char**)malloc(sizeof(char*));
     msgcomplet = creation_msg_serveur("a rejoint le serveur",args.pseudo," ");
@@ -331,7 +361,21 @@ void init_connexion(int dS) {
                 pthread_mutex_unlock(&M2); //redonne l'accès au nombre de client connecté
 
                 pthread_t thread;
-                pthread_create(&thread, NULL, choixPseudo,(void*)&dSC); //on lance le thread du client
+
+                pthread_mutex_lock(&M1); //bloque l'accès au tableau
+                int i = 0;
+                while(tabdSC[i].dSC != -1){ //si on trouve un slot de libre (qui existe forcément par la vérification fait au préalable)
+                    i = (i + 1)%NB_MAX_PERSONNE;
+                }
+
+                tabdSC[i].thread;
+                pthread_mutex_unlock(&M1); //on redonne l'accès
+
+                struct Args_Thread args;
+                args.dSC = dSC;
+                args.id = i;
+
+                pthread_create(&thread, NULL, choixPseudo,(void*)&args); //on lance le thread du client
             }
             else {
                 int a = 1;

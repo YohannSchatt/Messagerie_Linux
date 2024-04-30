@@ -119,17 +119,30 @@ void* propagation(void* args_thread){
 //Sortie : renvoie rien, envoie le pseudo au serveur
 void choixPseudo(int dS){
     char* msg = (char*)malloc(16*sizeof(char)); //le message alloué a 16 max (taille du pseudo autorisé)
-    printf("Choix de votre pseudo : "); 
-    fgets(msg,16,stdin); //l'utilisateur écrit son pseudo
-    char* pos = strchr(msg,'\n'); //cherche '\n' mis par défaut par fgets
-    *pos = '\0'; 
-    int taille = strlen(msg)+1; // +1 pour l'envoie de '\0'
-    if(send(dS, &taille, sizeof(int), 0) == -1){ //envoie la taille
-        ArretForce(0);
-    } 
-    else {
-        if (send(dS, msg, taille, 0) == -1) { //envoie le message
+    bool continu = true;
+
+    while(continu){
+        printf("Choix de votre pseudo : "); 
+        fgets(msg,16,stdin); //l'utilisateur écrit son pseudo
+        char* pos = strchr(msg,'\n'); //cherche '\n' mis par défaut par fgets
+        *pos = '\0'; 
+        int taille = strlen(msg)+1; // +1 pour l'envoie de '\0'
+
+
+        if(send(dS, &taille, sizeof(int), 0) == -1){ //envoie la taille
             ArretForce(0);
+        } 
+        else {
+            if (send(dS, msg, taille, 0) == -1) { //envoie le message
+                ArretForce(0);
+            }
+        }
+        int err = recv(dS, &continu, sizeof(bool), 0);
+        if(err == -1 || err == 0){
+            ArretForce(0);
+        }
+        if(continu){
+            printf("Le Pseudo que vous avez choisi est déjà utilisé ou invalide\n");
         }
     }
     free(msg);
