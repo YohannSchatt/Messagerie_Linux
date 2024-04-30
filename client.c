@@ -1,3 +1,4 @@
+Et j'ai un fichier serveur.c
 // BUT DU PROG : Ce programme, client.c, est un client TCP simple permettant d'échanger des messages avec un serveur distant
 
 #include <stdio.h>
@@ -61,20 +62,22 @@ bool lecture(int dS, bool* continu){
 //Fonction qui permet l'envoie des messages par l'utlisateur
 //Entrée : le socket du serveur, le message
 //Sortie : un booléen si il reçoit "fin" alors false, sinon true
-bool envoie(int dS, char** msg){
+// Fonction qui gère l'envoi des messages
+bool envoie(int dS, char** msg) {
     bool res = true;
-    fgets(*msg,128,stdin);
-    char *pos = strchr(*msg,'\n'); //cherche le '\n'
-    *pos = '\0'; // le change en '\0' pour la fin du message et la cohérence de l'affichage
-    if(strcmp(*msg,"fin") == 0){
+    fgets(*msg, 128, stdin);
+    char *pos = strchr(*msg, '\n');
+    *pos = '\0';
+    if (strcmp(*msg, "fin") == 0) { // Vérifie si c'est la commande de déconnexion
         res = false;
     }
-    int taille = strlen(*msg)+1; //on récupère la taille du message (+1 pour le caractère de '\0')
-    if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == 0){ //envoie de la taille et le message
+    int taille = strlen(*msg) + 1;
+    if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == 0) {
         res = false;
     }
     return res;
 }
+
 
 //Fonction qui permet de réceptionner tout les messages
 //Entrée : une structure qui sert d'argument pour que la fonction passe dans le thread et reçoit les données qui lui sont utiles
@@ -134,6 +137,7 @@ void choixPseudo(int dS){
     }
     free(msg);
 }
+
 
 //--------------------------------------main--------------------------------------------
 //Fonction principale du programme

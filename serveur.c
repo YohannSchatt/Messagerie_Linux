@@ -1,3 +1,4 @@
+integre le dans ca :
 //BUT DU PROG : Ce programme est un serveur de chat qui accepte les connexions de deux clients simultanément et facilite la communication entre eux.
 #include <stdio.h>
 #include <sys/socket.h>
@@ -33,7 +34,7 @@ struct client tabdSC[NB_MAX_PERSONNE+1]; //tableau des sockets des clients
 //Entrée : le socket et l'id
 //Sortie : tableau des sockets modifié
 void fin_connexion(int dSC,int id) {
-
+    pthread_cancel(threads[id]);
     pthread_mutex_lock(&M1); //empêche le tableau d'être accédé pour éviter problème d'exclusion mutuelle
     tabdSC[id].dSC = -1;
     pthread_mutex_unlock(&M1); //reouvre le tableau
@@ -49,27 +50,26 @@ void fin_connexion(int dSC,int id) {
 //Fonction qui reçoit un message du client associé au socket donnée en paramètre et le met dans message qui sera transmit a la fonction envoyer
 //Entrée : le socket et le pointeur du message
 //Sortie : un Booléen qui précise si on continu la communication, et met à jour le message
-bool lecture(int dSC,char **msg){
+bool lecture(int dSC, char **msg) {
     bool res = true;
     int taille;
-    int err = recv(dSC,&taille, sizeof(int), 0);
-    if (err != -1 && err != 0){ //communication de la taille
+    int err = recv(dSC, &taille, sizeof(int), 0);
+    if (err != -1 && err != 0) {
         *msg = (char*)malloc(taille*sizeof(char));
-        err = recv(dSC,*msg, taille, 0);
-        if (err != -1 && err != 0){ //reçoit le message
-            if((strcmp(*msg,"fin") == 0)){ //si on reçoit fin alors on change le booléen pour couper la communication
+        err = recv(dSC, *msg, taille, 0);
+        if (err != -1 && err != 0) {
+            if (strcmp(*msg, "fin") == 0) { // Vérifie si c'est la commande de déconnexion
                 res = false;
             }
-        }
-        else {
+        } else {
             res = false;
         }
-    }
-    else {
+    } else {
         res = false;
     }
     return res;
 }
+
 
 //Fonction qui envoie le message donnée en paramètre avec le pseudo correspondant au client qu'on a en paramètre grâce au socket
 //Entrée : le socket, le message, et le pseudo
@@ -213,18 +213,30 @@ char** creation_msg_client(char* msg, char* pseudo) {
 //Entrée : une struct d'argument pour le thread, contenant le socket du client, et le pseudo et l'id dans le tableau des sockets client
 //Sortie : renvoie rien, mais assure la liaison entre les clients tant que le client du socket ne coupe pas la communication
 void lecture_envoie(struct Args_Thread args) {
-    bool continu = true; //booléen qui va assurer la boucle tant que la communication n'est pas coupé
+    bool continu = true;
     char* msgrecu = (char*)malloc(sizeof(char));
-    msgrecu[0] ='\0';
+    msgrecu[0] = '\0';
     while (continu) {
         continu = lecture(args.dSC, &msgrecu);
-        if (continu){
-            char** msgcomplet = (char**)malloc(sizeof(char*));
-            msgcomplet = creation_msg_client(msgrecu, args.pseudo);
-            envoie_everyone_client(args.dSC,*msgcomplet);
+        if (continu) {
+            if (strcmp(msgrecu, "fin") == 0) { // Commande de déconnexion détectée
+                fin_connexion(args.dSC, args.id);
+                break; // Sort de la boucle
+            } else {
+                // Autre traitement du message
+            }
         }
     }
     free(msgrecu);
+    //message de fin de communication
+
+        char** msgcomplet = (char**)malloc(sizeof(char*));
+        msgcomplet = creation_msg_serveur("a quitté le serveur",args.pseudo," ");
+        envoie_everyone_client(args.dSC,*msgcomplet);
+        fin_connexion(args.dSC,args.id); //si communication coupé alors on mets fin au socket
+    }
+
+
 
     //message de fin de communication
 
@@ -365,4 +377,10 @@ int main(int argc, char *argv[]) {
     init_connexion(dS); //lancement de la connexion des clients
     shutdown(dS,2); //fin du socket de communication
     printf("fin programme");
+}
+
+void fin_connexion(int dSC, int id) {
+    
+    // Termine le thread associé au client
+    // Autres actions de nettoyage ou de fermeture
 }
