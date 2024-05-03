@@ -111,9 +111,7 @@ void envoie_everyone_serveur(char* msg){
 void envoie_prive_client(char* msg,char* pseudo,struct mem_Thread args){
     int i = 0;
     bool envoye = false;
-    printf("6\n");
     pthread_mutex_lock(&M1); //on bloque l'accès au tableau
-    printf("7\n");
     printf("%s\n", pseudo);
     while (i<NB_MAX_PERSONNE && !envoye){
         if (tabdSC[i].dSC != -1) {
@@ -125,7 +123,6 @@ void envoie_prive_client(char* msg,char* pseudo,struct mem_Thread args){
         i++;
     }
     pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
-    printf("8\n");
 }
 
 //Fonction qui envoie le message donné en paramètre 
@@ -211,21 +208,30 @@ char* creation_msg_client_prive(char* msg, char* pseudo) {
     return creation_msg_serveur(msg,pseudo," (Message privé) : ");
 }
 
+void ArretForce(int n) {
+    printf("Coupure du programme");
+    envoie_everyone_serveur("fermeture du serveur\n");
+    pthread_mutex_lock(&M1);
+    for (int i = 0;i<NB_MAX_PERSONNE+1;i++) {
+        shutdown(tabdSC[i].dSC,2);
+    }
+    pthread_mutex_unlock(&M1);
+    exit(0);
+}
 
 bool protocol(char *msg, struct mem_Thread args){
     bool res = true;
     if (msg[0] == '@'){
-        printf("1\n");
         char* pseudo_client_recevoir = recup_pseudo(msg, 1);
-        printf("2\n");
         char* contenu_msg = recup_message(msg,strlen(pseudo_client_recevoir)+2);
-        printf("3\n");
         char* message_complet = creation_msg_client_prive(contenu_msg,args.pseudo);
-        printf("4\n");
         envoie_prive_client(message_complet,pseudo_client_recevoir,args);
     }
     else if (strcmp("/quitter",msg) == 0) {
         res = false;
+    }
+    else if (strcmp("/fermeture",msg) == 0){
+        ArretForce(0);
     }
     else {
         char* message_complet = creation_msg_client_public(msg,args.pseudo);
@@ -233,7 +239,6 @@ bool protocol(char *msg, struct mem_Thread args){
     }
     return res;
 }
-
 
 //Cette fonction gère la lecture du message d'un client qui sera ensuite envoyé a tout les clients
 //Entrée : une struct d'argument pour le thread, contenant le socket du client, et le pseudo et l'id dans le tableau des sockets client
@@ -400,17 +405,6 @@ void init_connexion(int dS) {
             }
         }
     }
-}
-
-void ArretForce(int n) {
-    printf("Coupure du programme");
-    envoie_everyone_serveur("fermeture du serveur\n");
-    pthread_mutex_lock(&M1);
-    for (int i = 0;i<NB_MAX_PERSONNE+1;i++) {
-        shutdown(tabdSC[i].dSC,2);
-    }
-    pthread_mutex_unlock(&M1);
-    exit(0);
 }
 
 //main de la fonciton

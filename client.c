@@ -72,12 +72,17 @@ bool envoie(int dS, char** msg, char* pseudo){
     printf("%s : ", pseudo); //affichage en dessous comme le message de join va permettre d'afficher avant
     char *pos = strchr(*msg,'\n'); //cherche le '\n' 
     *pos = '\0'; // le change en '\0' pour la fin du message et la cohérence de l'affichage
-    if(strcmp(*msg,"/quitter") == 0){
-        res = false;
+    if(strcmp(*msg,"/help") != 0){
+        if(strcmp(*msg,"/quitter") == 0){
+            res = false;
+        }
+        int taille = strlen(*msg)+1; //on récupère la taille du message (+1 pour le caractère de '\0')
+        if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == 0){ //envoie de la taille et le message
+            res = false;
+        }
     }
-    int taille = strlen(*msg)+1; //on récupère la taille du message (+1 pour le caractère de '\0')
-    if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == 0){ //envoie de la taille et le message
-        res = false;
+    else {
+        afficher_help();
     }
     return res;
 }
