@@ -1,0 +1,23 @@
+Manuel du client :
+
+1. Commande /help : Affiche le manuel du client avec la liste des fonctionnalités disponibles.
+
+2. Commande /quit : Permet de quitter le client.
+
+3. Commande /list : Affiche la liste des utilisateurs connectés sur le serveur.
+
+4. Commande /msg [utilisateur] [message] : Envoie un message privé à un utilisateur spécifique.
+
+5. Commande /join [salon] : Rejoindre un salon de discussion.
+
+6. Commande /create [nom_salon] : Créer un nouveau salon de discussion.
+
+7. Commande /leave : Quitter le salon de discussion actuel.
+
+8. Commande /nick [nouveau_pseudo] : Changer de pseudo.
+
+9. Commande /clear : Efface l'écran du client.
+
+10. Commande /info : Affiche des informations sur le client et le serveur.
+
+Pour plus d'informations sur une commande spécifique, utilisez /help [commande].
