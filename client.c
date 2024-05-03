@@ -24,6 +24,7 @@ struct Args_Thread { //structure permettant de transférer les arguments dans le
 
 //Fonction qui prend un paramètre un signal et qui stop le programme proprement
 void ArretForce(int n) {
+    printf("\33[2K\r");
     printf("Coupure du programme\n");
     if (d != -1){
         shutdown(d,2);
@@ -52,7 +53,8 @@ bool lecture(int dS, bool* continu,char* pseudo){
             if (*continu){
                 printf("\33[2K\r");
                 puts(msg);
-                printf("%s : ",pseudo);
+                printf("%s : ", pseudo);
+                setbuf(stdout, NULL);
             }
             pthread_mutex_unlock(&M1); //on réouvre l'accès
         }
@@ -66,8 +68,8 @@ bool lecture(int dS, bool* continu,char* pseudo){
 //Sortie : un booléen si il reçoit "fin" alors false, sinon true 
 bool envoie(int dS, char** msg, char* pseudo){
     bool res = true;
-    printf("%s : ", pseudo);
     fgets(*msg,128,stdin);
+    printf("%s : ", pseudo); //affichage en dessous comme le message de join va permettre d'afficher avant
     char *pos = strchr(*msg,'\n'); //cherche le '\n' 
     *pos = '\0'; // le change en '\0' pour la fin du message et la cohérence de l'affichage
     if(strcmp(*msg,"/quitter") == 0){
@@ -92,11 +94,9 @@ void* reception(void* args_thread) {
         pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
         continu = lecture(args.dS,args.continu,args.pseudo);
     }
-    printf("fin reception\n");
     pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
     *args.continu = false;
     pthread_mutex_unlock(&M1); //on redonne l'accès
-    printf("fin reception\n");
     pthread_exit(0); 
 }
 
@@ -104,6 +104,7 @@ void* reception(void* args_thread) {
 //Entrée : une structure qui sert d'argument pour que la fonction passe dans le thread et reçoit les données qui lui sont utiles
 //Sortie : renvoie rien, gère l'envoie des messages
 void* propagation(void* args_thread){
+    sleep(1);
     char* msg = (char*)malloc(128*sizeof(char)); //alloue la taille du message (128 max car fgets à 128 max)
     struct Args_Thread args = *((struct Args_Thread*)args_thread); //récupère les arguments
     bool continu = true;
@@ -113,12 +114,10 @@ void* propagation(void* args_thread){
         pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
         continu = envoie(args.dS,&msg,args.pseudo); 
     }
-    printf("fin propagation\n");
     pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
     *args.continu = false; 
     pthread_mutex_unlock(&M1); //on redonne l'accès
     free(msg); 
-    printf("fin propagation\n");
     pthread_exit(0); 
 }
 
