@@ -3,3 +3,5 @@ Manuel du client :
 /quitter : Cette commande permet à un utilisateur de quitter le chat et de se déconnecter du serveur.
 
 @pseudo message : Cette commande permet à un utilisateur d'envoyer un message privé à un autre utilisateur portant le pseudo spécifié.
+
+/fermeture : pour la fermeture 
