@@ -34,7 +34,7 @@ void ArretForce(int n) {
 //Fonction de lecture des messages et affiche les messages reçu des autres clients
 //Entrée : le socket du serveur, le booléen qui gère l'exécution des deux threads
 //Sortie : renvoie rien, affiche le message
-bool lecture(int dS, bool* continu){ 
+bool lecture(int dS, bool* continu,char* pseudo){ 
     bool res = true;
     int taille;
     int err = recv(dS,&taille, sizeof(int), 0); //reception de la taille du message
@@ -52,6 +52,7 @@ bool lecture(int dS, bool* continu){
             if (*continu){
                 printf("\33[2K\r");
                 puts(msg);
+                printf("%s : ",pseudo);
             }
             pthread_mutex_unlock(&M1); //on réouvre l'accès
         }
@@ -89,7 +90,7 @@ void* reception(void* args_thread) {
         pthread_mutex_lock(&M1); //bloque l'accès au booléen (car peut être écrit pendant sa lecture)
         continu = *(args.continu);
         pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
-        continu = lecture(args.dS,args.continu);
+        continu = lecture(args.dS,args.continu,args.pseudo);
     }
     printf("fin reception\n");
     pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
@@ -124,7 +125,7 @@ void* propagation(void* args_thread){
 //Fonction qui permet a l'utilisateur de sélectionner son pseudo
 //Entrée : le socket du serveur
 //Sortie : renvoie rien, envoie le pseudo au serveur
-void choixPseudo(int dS){
+char* choixPseudo(int dS){
     char* msg = (char*)malloc(16*sizeof(char)); //le message alloué a 16 max (taille du pseudo autorisé)
     bool continu = true;
 
@@ -134,7 +135,6 @@ void choixPseudo(int dS){
         char* pos = strchr(msg,'\n'); //cherche '\n' mis par défaut par fgets
         *pos = '\0'; 
         int taille = strlen(msg)+1; // +1 pour l'envoie de '\0'
-
 
         if(send(dS, &taille, sizeof(int), 0) == -1){ //envoie la taille
             ArretForce(0);
@@ -152,7 +152,7 @@ void choixPseudo(int dS){
             printf("Le Pseudo que vous avez choisi est déjà utilisé ou invalide\n");
         }
     }
-    free(msg);
+    return msg;
 }
 
 //--------------------------------------main--------------------------------------------
@@ -199,8 +199,8 @@ int main(int argc, char* argv[]){
 
                     // Les deux structures sont différents pour éviter des problèmes de concurrence même si ils prennent les même données 
             
-                    args_recept.continu = choixPseudo(dS); //l'utilisateur donne son pseudo
-                    args_envoie.continu = args_recept.continu;
+                    args_recept.pseudo = choixPseudo(dS); //l'utilisateur donne son pseudo
+                    args_envoie.pseudo = args_recept.pseudo;
 
                     if (pthread_create(&th_recept, NULL, reception, (void*)&args_recept) == -1) { //lance le thread de réception
                         shutdown(dS,2);
