@@ -66,7 +66,7 @@ bool envoie(int dS, char** msg){
     fgets(*msg,128,stdin);
     char *pos = strchr(*msg,'\n'); //cherche le '\n' 
     *pos = '\0'; // le change en '\0' pour la fin du message et la cohérence de l'affichage
-    if(strcmp(*msg,"fin") == 0){
+    if(strcmp(*msg,"/quitter") == 0){
         res = false;
     }
     int taille = strlen(*msg)+1; //on récupère la taille du message (+1 pour le caractère de '\0')
@@ -88,9 +88,11 @@ void* reception(void* args_thread) {
         pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
         continu = lecture(args.dS,args.continu);
     }
+    printf("fin reception\n");
     pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
     *args.continu = false;
     pthread_mutex_unlock(&M1); //on redonne l'accès
+    printf("fin reception\n");
     pthread_exit(0); 
 }
 
@@ -107,10 +109,12 @@ void* propagation(void* args_thread){
         pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
         continu = envoie(args.dS,&msg); 
     }
+    printf("fin propagation\n");
     pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
     *args.continu = false; 
     pthread_mutex_unlock(&M1); //on redonne l'accès
     free(msg); 
+    printf("fin propagation\n");
     pthread_exit(0); 
 }
 

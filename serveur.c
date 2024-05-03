@@ -111,13 +111,21 @@ void envoie_everyone_serveur(char* msg){
 void envoie_prive_client(char* msg,char* pseudo,struct mem_Thread args){
     int i = 0;
     bool envoye = false;
+    printf("6\n");
     pthread_mutex_lock(&M1); //on bloque l'accès au tableau
+    printf("7\n");
+    printf("%s\n", pseudo);
     while (i<NB_MAX_PERSONNE && !envoye){
-        if(tabdSC[i].dSC && tabdSC[i].pseudo == pseudo){
+        if (tabdSC[i].dSC != -1) {
+            printf("%s\n",tabdSC[i].pseudo);
+        }
+        if(tabdSC[i].dSC != -1 && strcmp(tabdSC[i].pseudo,pseudo) == 0){
             envoie(tabdSC[i].dSC,msg);
         }
+        i++;
     }
     pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
+    printf("8\n");
 }
 
 //Fonction qui envoie le message donné en paramètre 
@@ -141,6 +149,7 @@ char* recup_pseudo(char* msg,int pos){
     int i = 0;
     while( i < 16 && msg[pos+i] != ' ' && msg[pos+i] != '\0'){
         pseudo[i] = msg[pos+i];
+        i++;
     }
     return pseudo;
 }
@@ -180,44 +189,48 @@ bool verif_commande(char* msg,char* msg_commande){
 //Cette fonction fusionne le pseudo de la personne concerné, et le message principale avec des caractères qui les joints
 //Entrée : trois String (un pseudo, un message, et un la jointure)
 //Sortie : renvoie l'adresse d'un String avec comme forme "pseudo jointure message"
-char** creation_msg_serveur(char* msg, char* pseudo,char* jointure) {
+char* creation_msg_serveur(char* msg, char* pseudo,char* jointure) {
     int taillemsg = strlen(msg); 
     int taillepseudo = strlen(pseudo);
     int taillejointure = strlen(jointure);
     char* message = (char*)malloc((taillemsg+taillepseudo+taillejointure+1)*sizeof(char)); //taille du msg (+1 pour '\0)
-    char** adressemessage = (char**)malloc(sizeof(char*));
-    *adressemessage = message;
     strcat(message,pseudo);
     strcat(message,jointure);
     strcat(message,msg);
-    return adressemessage;
+    return message;
 }
 
 //Cette fonction fusionne le pseudo de l'utilisateur donné en paramètre et le message donné aussi en paramètre
 //Entrée : deux String (un pseudo et un message)
 //Sortie : renvoie l'adresse d'un String avec comme forme "pseudo : message"
-char** creation_msg_client_public(char* msg, char* pseudo) {
+char* creation_msg_client_public(char* msg, char* pseudo) {
     return creation_msg_serveur(msg,pseudo," : ");
 }
 
-char** creation_msg_client_prive(char* msg, char* pseudo) {
-    return creation_msg_serveur(msg,pseudo," : (Message privé)");
+char* creation_msg_client_prive(char* msg, char* pseudo) {
+    return creation_msg_serveur(msg,pseudo," (Message privé) : ");
 }
 
 
 bool protocol(char *msg, struct mem_Thread args){
-    char** message = (char**)malloc(sizeof(char*)); 
     bool res = true;
     if (msg[0] == '@'){
-        message = creation_msg_client_prive(recup_message(msg,strlen(args.pseudo)+2),args.pseudo)
-        envoie_prive_client(*message,recup_pseudo(msg, 2),args);
+        printf("1\n");
+        char* pseudo_client_recevoir = recup_pseudo(msg, 1);
+        printf("2\n");
+        char* contenu_msg = recup_message(msg,strlen(pseudo_client_recevoir)+2);
+        printf("3\n");
+        char* message_complet = creation_msg_client_prive(contenu_msg,args.pseudo);
+        printf("4\n");
+        envoie_prive_client(message_complet,pseudo_client_recevoir,args);
+        printf("5\n");
     }
-    else if (strcmp("/fin",msg) == 0) {
+    else if (strcmp("/quitter",msg) == 0) {
         res = false;
     }
     else {
-        message = creation_msg_client_public(msg,args.pseudo);
-        envoie_everyone_client(args.dSC,*message);
+        char* message_complet = creation_msg_client_public(msg,args.pseudo);
+        envoie_everyone_client(args.dSC,message_complet);
     }
     return res;
 }
@@ -240,9 +253,8 @@ void lecture_envoie(struct mem_Thread args) {
 
     //message de fin de communication
 
-    char** msgcomplet = (char**)malloc(sizeof(char*)); 
-    msgcomplet = creation_msg_serveur("a quitté le serveur",args.pseudo," ");
-    envoie_everyone_client(args.dSC,*msgcomplet);
+    char* msgcomplet = creation_msg_serveur("a quitté le serveur",args.pseudo," ");
+    envoie_everyone_client(args.dSC,msgcomplet);
     fin_connexion(args.dSC,args.id); //si communication coupé alors on mets fin au socket
 }
 
@@ -328,9 +340,8 @@ void* choixPseudo(void* args_thread){
     tabdSC[args.id].dSC = args.dSC;
     tabdSC[args.id].pseudo = args.pseudo; 
 
-    char** msgcomplet = (char**)malloc(sizeof(char*));
-    msgcomplet = creation_msg_serveur("a rejoint le serveur",args.pseudo," ");
-    envoie_everyone_serveur(*msgcomplet);
+    char* msgcomplet = creation_msg_serveur("a rejoint le serveur",args.pseudo," ");
+    envoie_everyone_serveur(msgcomplet);
 
     lecture_envoie(args); //le client va pouvoir commencer a communiquer
     pthread_exit(0);
