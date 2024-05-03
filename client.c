@@ -19,6 +19,7 @@ int d = -1; //variable qui stocke dS (quand il est défini) pour l'arrêt forcé
 struct Args_Thread { //structure permettant de transférer les arguments dans les différents threads
     int dS; //le socket du serveur
     bool* continu; //le booléen qui permet de stopper les 2 threads quand l'utilisateur ferme la connexion
+    char* pseudo;
 };
 
 //Fonction qui prend un paramètre un signal et qui stop le programme proprement
@@ -49,6 +50,7 @@ bool lecture(int dS, bool* continu){
         else {
             pthread_mutex_lock(&M1); //on bloque l'accès au booléen car il peut être changé pendant la lecture
             if (*continu){
+                printf("\33[2K\r");
                 puts(msg);
             }
             pthread_mutex_unlock(&M1); //on réouvre l'accès
@@ -61,8 +63,9 @@ bool lecture(int dS, bool* continu){
 //Fonction qui permet l'envoie des messages par l'utlisateur
 //Entrée : le socket du serveur, le message
 //Sortie : un booléen si il reçoit "fin" alors false, sinon true 
-bool envoie(int dS, char** msg){
+bool envoie(int dS, char** msg, char* pseudo){
     bool res = true;
+    printf("%s : ", pseudo);
     fgets(*msg,128,stdin);
     char *pos = strchr(*msg,'\n'); //cherche le '\n' 
     *pos = '\0'; // le change en '\0' pour la fin du message et la cohérence de l'affichage
@@ -107,7 +110,7 @@ void* propagation(void* args_thread){
         pthread_mutex_lock(&M1); //bloque l'accès au booléen (car peut être écrit pendant sa lecture)
         continu = *(args.continu); //met à jour le booléen si modifié par la fonction propagation
         pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
-        continu = envoie(args.dS,&msg); 
+        continu = envoie(args.dS,&msg,args.pseudo); 
     }
     printf("fin propagation\n");
     pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
@@ -196,7 +199,8 @@ int main(int argc, char* argv[]){
 
                     // Les deux structures sont différents pour éviter des problèmes de concurrence même si ils prennent les même données 
             
-                    choixPseudo(dS); //l'utilisateur donne son pseudo
+                    args_recept.continu = choixPseudo(dS); //l'utilisateur donne son pseudo
+                    args_envoie.continu = args_recept.continu;
 
                     if (pthread_create(&th_recept, NULL, reception, (void*)&args_recept) == -1) { //lance le thread de réception
                         shutdown(dS,2);

@@ -223,7 +223,6 @@ bool protocol(char *msg, struct mem_Thread args){
         char* message_complet = creation_msg_client_prive(contenu_msg,args.pseudo);
         printf("4\n");
         envoie_prive_client(message_complet,pseudo_client_recevoir,args);
-        printf("5\n");
     }
     else if (strcmp("/quitter",msg) == 0) {
         res = false;
