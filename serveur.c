@@ -209,14 +209,32 @@ char* creation_msg_client_prive(char* msg, char* pseudo) {
 }
 
 void ArretForce(int n) {
-    printf("Coupure du programme");
-    envoie_everyone_serveur("fermeture du serveur\n");
+    printf("\33[2K\r");
+    printf("Coupure du programme\n");
+    envoie_everyone_serveur("fermeture du serveur");
     pthread_mutex_lock(&M1);
     for (int i = 0;i<NB_MAX_PERSONNE+1;i++) {
         shutdown(tabdSC[i].dSC,2);
     }
     pthread_mutex_unlock(&M1);
     exit(0);
+}
+
+// Ajouter cette fonction pour envoyer le contenu de manuel.txt
+void envoyer_manuel(int dSC) {
+    FILE *fichier;
+    char ligne[256]; // Taille maximale d'une ligne du manuel
+    fichier = fopen("manuel.txt", "r");
+    if (fichier == NULL) {
+        // Gérer l'erreur si le fichier n'a pas pu être ouvert
+        printf("Erreur : Impossible d'ouvrir le fichier manuel.txt\n");
+    } else {
+        // Envoyer le contenu du fichier ligne par ligne
+        while (fgets(ligne, sizeof(ligne), fichier) != NULL) {
+            envoie(dSC, ligne);
+        }
+        fclose(fichier);
+    }
 }
 
 bool protocol(char *msg, struct mem_Thread args){
@@ -227,11 +245,19 @@ bool protocol(char *msg, struct mem_Thread args){
         char* message_complet = creation_msg_client_prive(contenu_msg,args.pseudo);
         envoie_prive_client(message_complet,pseudo_client_recevoir,args);
     }
-    else if (strcmp("/quitter",msg) == 0) {
-        res = false;
-    }
-    else if (strcmp("/fermeture",msg) == 0){
-        ArretForce(0);
+    else if (msg[0] == '/') {
+        if (strcmp("/help",msg) == 0) {
+            envoyer_manuel(args.dSC);
+        }
+        else if (strcmp("/quitter",msg) == 0) {
+            res = false;
+        }
+        else if (strcmp("/fermeture",msg) == 0){
+            ArretForce(0);
+        }
+        else {
+            envoie(args.dSC, "Commande inconnu faite /help pour plus d'information");
+        }
     }
     else {
         char* message_complet = creation_msg_client_public(msg,args.pseudo);

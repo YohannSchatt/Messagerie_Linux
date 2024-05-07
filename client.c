@@ -10,7 +10,8 @@
 #include <pthread.h>
 #include <signal.h>
 
-pthread_t th_envoie,th_recept; //création des 2 threads, celui qui va lire les messages reçu et celui qui envoie son message au serveur
+pthread_t th_envoie; //création des 2 threads, celui qui va lire les messages reçu et celui qui envoie son message au serveur
+pthread_t th_recept;
 
 pthread_mutex_t M1 = PTHREAD_MUTEX_INITIALIZER; //création du mutex qui permet d'assurer l'exclusion mutuelle pour la variable continu
 
@@ -66,25 +67,25 @@ bool lecture(int dS, bool* continu,char* pseudo){
 //Fonction qui permet l'envoie des messages par l'utlisateur
 //Entrée : le socket du serveur, le message
 //Sortie : un booléen si il reçoit "fin" alors false, sinon true 
-bool envoie(int dS, char** msg, char* pseudo){
+bool envoie(int dS, char** msg,bool* continu, char* pseudo){
     bool res = true;
-    fgets(*msg,128,stdin);
-    printf("%s : ", pseudo); //affichage en dessous comme le message de join va permettre d'afficher avant
-    char *pos = strchr(*msg,'\n'); //cherche le '\n' 
-    *pos = '\0'; // le change en '\0' pour la fin du message et la cohérence de l'affichage
-    if(strcmp(*msg,"/help") != 0){
-        if(strcmp(*msg,"/quitter") == 0){
+    pthread_mutex_lock(&M1);
+    if (*continu){
+        pthread_mutex_unlock(&M1);
+        fgets(*msg,128,stdin);
+        printf("%s : ", pseudo); //affichage en dessous comme le message de join va permettre d'afficher avant
+        char *pos = strchr(*msg,'\n'); //cherche le '\n' 
+        *pos = '\0'; // le change en '\0' pour la fin du message et la cohérence de l'affichage
+        if(strcmp(*msg,"/quitter") == 0 || strcmp(*msg,"/fermeture") == 0){
             res = false;
         }
         int taille = strlen(*msg)+1; //on récupère la taille du message (+1 pour le caractère de '\0')
-        if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == 0){ //envoie de la taille et le message
+        if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == -1){ //envoie de la taille et le message
             res = false;
         }
+        return res;
     }
-    else {
-        afficher_help();
-    }
-    return res;
+    return false;
 }
 
 //Fonction qui permet de réceptionner tout les messages
@@ -102,7 +103,7 @@ void* reception(void* args_thread) {
     pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
     *args.continu = false;
     pthread_mutex_unlock(&M1); //on redonne l'accès
-    pthread_exit(0); 
+    pthread_exit(EXIT_SUCCESS);
 }
 
 //Fonction qui envoie les messages 
@@ -117,13 +118,13 @@ void* propagation(void* args_thread){
         pthread_mutex_lock(&M1); //bloque l'accès au booléen (car peut être écrit pendant sa lecture)
         continu = *(args.continu); //met à jour le booléen si modifié par la fonction propagation
         pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
-        continu = envoie(args.dS,&msg,args.pseudo); 
+        continu = envoie(args.dS,&msg,args.continu,args.pseudo); 
     }
     pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
     *args.continu = false; 
     pthread_mutex_unlock(&M1); //on redonne l'accès
-    free(msg); 
-    pthread_exit(0); 
+    free(msg);
+    pthread_exit(EXIT_SUCCESS);
 }
 
 //Fonction qui permet a l'utilisateur de sélectionner son pseudo
@@ -208,18 +209,17 @@ int main(int argc, char* argv[]){
 
                     if (pthread_create(&th_recept, NULL, reception, (void*)&args_recept) == -1) { //lance le thread de réception
                         shutdown(dS,2);
-                        fprintf(stderr, "Erreur lors de la création du thread de reception\n"); //si y a un problème 
+                        fprintf(stderr, "Erreur lors de la création du thread de reception\n"); 
                         return EXIT_FAILURE; //fin du programme
                     }
 
                     if (pthread_create(&th_envoie, NULL, propagation, (void*)&args_envoie) == -1) { //lance le thread propagation
                         shutdown(dS,2);
-                        fprintf(stderr, "Erreur lors de la création du thread d'envoie\n"); //si y a un problème 
+                        fprintf(stderr, "Erreur lors de la création du thread d'envoie\n");
                         return EXIT_FAILURE; //fin du programme
                     }
                     
                     pthread_join(th_recept,NULL); //attend la fin du thread de réception
-                    pthread_join(th_envoie,NULL); //attend la fin du thread de propagation
                 }
                 else {
                     printf("le serveur est plein\n");
@@ -227,6 +227,8 @@ int main(int argc, char* argv[]){
             }
             shutdown(dS,2);//met fin au socket
 
+            setbuf(stdout, NULL);
+            printf("\33[2K\r");
             printf("fin du programme\n");
         }
     }
