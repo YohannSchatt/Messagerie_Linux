@@ -160,6 +160,38 @@ char* choixPseudo(int dS){
     return msg;
 }
 
+void create_thread(int dS){
+    bool* continu = (bool*)malloc(sizeof(bool)); //booléen utilisé dans les deux threads
+    *continu = true;
+
+    struct Args_Thread args_recept;
+    args_recept.dS = dS;
+    args_recept.continu = continu;
+
+    struct Args_Thread args_envoie;
+    args_envoie.dS = dS;
+    args_envoie.continu = continu;
+
+    // Les deux structures sont différents pour éviter des problèmes de concurrence même si ils prennent les même données 
+            
+    args_recept.pseudo = choixPseudo(dS); //l'utilisateur donne son pseudo
+    args_envoie.pseudo = args_recept.pseudo;
+
+    if (pthread_create(&th_recept, NULL, reception, (void*)&args_recept) == -1) { //lance le thread de réception
+        shutdown(dS,2);
+        fprintf(stderr, "Erreur lors de la création du thread de reception\n"); 
+        exit(0); //fin du programme
+    }
+
+    if (pthread_create(&th_envoie, NULL, propagation, (void*)&args_envoie) == -1) { //lance le thread propagation
+        shutdown(dS,2);
+        fprintf(stderr, "Erreur lors de la création du thread d'envoie\n");
+        exit(0); //fin du programme
+    }
+                    
+    pthread_join(th_recept,NULL); //attend la fin du thread de réception
+}
+
 //--------------------------------------main--------------------------------------------
 //Fonction principale du programme
 //pour lancer le programme il faut écrite : ./client "IP" "Port"
@@ -189,40 +221,16 @@ int main(int argc, char* argv[]){
             printf("Socket Connecté\n");
             int accept;
             int err = recv(dS,&accept,sizeof(int),0); 
-            if( err != -1 || err != 0) {
+            if( err != -1 && err != 0) {
                 if (accept == 0) {
-                    bool* continu = (bool*)malloc(sizeof(bool)); //booléen utilisé dans les deux threads
-                    *continu = true;
-
-                    struct Args_Thread args_recept;
-                    args_recept.dS = dS;
-                    args_recept.continu = continu;
-
-                    struct Args_Thread args_envoie;
-                    args_envoie.dS = dS;
-                    args_envoie.continu = continu;
-
-                    // Les deux structures sont différents pour éviter des problèmes de concurrence même si ils prennent les même données 
-            
-                    args_recept.pseudo = choixPseudo(dS); //l'utilisateur donne son pseudo
-                    args_envoie.pseudo = args_recept.pseudo;
-
-                    if (pthread_create(&th_recept, NULL, reception, (void*)&args_recept) == -1) { //lance le thread de réception
-                        shutdown(dS,2);
-                        fprintf(stderr, "Erreur lors de la création du thread de reception\n"); 
-                        return EXIT_FAILURE; //fin du programme
-                    }
-
-                    if (pthread_create(&th_envoie, NULL, propagation, (void*)&args_envoie) == -1) { //lance le thread propagation
-                        shutdown(dS,2);
-                        fprintf(stderr, "Erreur lors de la création du thread d'envoie\n");
-                        return EXIT_FAILURE; //fin du programme
-                    }
-                    
-                    pthread_join(th_recept,NULL); //attend la fin du thread de réception
+                    create_thread(dS);
                 }
                 else {
-                    printf("le serveur est plein\n");
+                    printf("le serveur est plein, vous êtes en file d'attente\n");
+                    err = recv(dS,&accept,sizeof(int),0); 
+                    if (err!= -1 && err != 0 && accept == 0){
+                        create_thread(dS);
+                    }
                 }     
             }
             shutdown(dS,2);//met fin au socket
