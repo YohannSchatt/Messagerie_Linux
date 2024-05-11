@@ -52,6 +52,7 @@ void fin_connexion(int dSC,int id) {
     pthread_mutex_unlock(&M2); //empêche le nombre de personne présente d'être accédé pour éviter problème d'exclusion mutuelles
 
     shutdown(dSC,2); //ferme le socket
+
     sem_post(&semaphore);
     printf("fermeture\n");
 }
@@ -349,8 +350,6 @@ void* choixPseudo(void* args_thread){
 
     bool continu = true;
 
-    sem_wait(&semaphore);
-
     while(continu){
         recv(th.dSC,&taille, sizeof(int), 0); //reçoit la taille du message
         args.pseudo = (char*)malloc(taille*sizeof(char)); 
@@ -383,31 +382,6 @@ void* choixPseudo(void* args_thread){
     pthread_exit(0);
 }
 
-void accept_file_attente(int dS,int dSC){
-    printf("Client Connecté\n");
-    pthread_mutex_lock(&M2);      
-    NB_PERSONNE_ACTUELLE++;
-
-    pthread_mutex_unlock(&M2); //redonne l'accès au nombre de client connecté
-
-    pthread_t thread;
-
-    pthread_mutex_lock(&M1); //bloque l'accès au tableau
-    int i = 0;
-    while(tabdSC[i].dSC != -1){ //si on trouve un slot de libre (qui existe forcément par la vérification fait au préalable)
-        i = (i + 1)%NB_MAX_PERSONNE;
-    }
-
-    tabdSC[i].thread;
-    pthread_mutex_unlock(&M1); //on redonne l'accès
-
-    struct Args_Thread args;
-    args.dSC = dSC;
-    args.id = i;
-
-    pthread_create(&thread, NULL, choixPseudo,(void*)&args); //on lance le thread du client
-}
-
 //initialise la communication entre le client et le serveur
 //Entrée : le socket d'écoute
 //Sortie : renvoie rien, lance la fonction du pseudo avec le socket créé si la communication peut s'opérer
@@ -418,36 +392,46 @@ void init_connexion(int dS) {
     }
 
     struct sockaddr_in aC ; //structure du socket
-    socklen_t lg = sizeof(struct sockaddr_in) ;  
+    socklen_t lg = sizeof(struct sockaddr_in) ; 
 
+    sem_init(&semaphore, 0, NB_MAX_PERSONNE); 
+    int a = 1;
     while(true){ //continue a s'éxecuter 
-
+        sem_wait(&semaphore);
         int dSC = accept(dS, (struct sockaddr*) &aC,&lg); //crée le socket client
         if (dSC == -1) { //gestion de l'erreur de accept
             printf("problème de connexion\n");
         }
         else {
+            send(dSC,&a, sizeof(int), 0);
             pthread_mutex_lock(&M2); //bloque l'accès au compteur du nombre de personne
-            if (NB_PERSONNE_ACTUELLE < NB_MAX_PERSONNE){
-                pthread_mutex_unlock(&M2);
-                
-                int a = 0;
-                send(dSC, &a, sizeof(int), 0);
-                accept_file_attente(dS,dSC);
+            printf("Client Connecté\n");            
+            NB_PERSONNE_ACTUELLE++;
+
+            pthread_mutex_unlock(&M2); //redonne l'accès au nombre de client connecté
+
+            pthread_t thread;
+
+            pthread_mutex_lock(&M1); //bloque l'accès au tableau
+            int i = 0;
+            while(tabdSC[i].dSC != -1){ //si on trouve un slot de libre (qui existe forcément par la vérification fait au préalable)
+                i = (i + 1)%NB_MAX_PERSONNE;
             }
-            else {
-                int a = 1;
-                send(dSC, &a, sizeof(int), 0);
-                shutdown(dSC,2); //fin du socket car il n'y a plus de place dans la communication
-            }
+
+            tabdSC[i].thread;
+            pthread_mutex_unlock(&M1); //on redonne l'accès
+
+            struct Args_Thread args;
+            args.dSC = dSC;
+            args.id = i;
+
+            pthread_create(&thread, NULL, choixPseudo,(void*)&args); //on lance le thread du client
         }
     }
 }
 
 //main de la fonciton
 int main(int argc, char *argv[]) { 
-
-    sem_init(&semaphore,0,NB_MAX_PERSONNE);
 
     printf("Début programme\n");
 
