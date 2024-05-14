@@ -382,6 +382,74 @@ void* choixPseudo(void* args_thread){
     pthread_exit(0);
 }
 
+void thread_file(void * args_thread){
+    int dSFC = initSocketFile(atoi(argv[1])+1);
+    recvFichier(dSFC)
+}
+
+int initSocketFile(int port){
+    int dSFC = socket(PF_INET, SOCK_STREAM, 0); //crée le socket en TCP
+    if (dSFC == -1){
+        fprintf(stderr,"erreur lors de la création du socket");
+        pthread_exit(0);
+    }
+    else {
+       printf("Socket Créé\n");
+        struct sockaddr_in ad; // structure des sockets
+        ad.sin_family = AF_INET;
+        ad.sin_addr.s_addr = INADDR_ANY ;
+        ad.sin_port = htons(port) ;
+        if (bind(dSFC, (struct sockaddr*)&ad, sizeof(ad)) == -1) { //Donne un nom au socket
+            shutdown(dSF,2);
+            fprintf(stderr,"problème de nommage du socket\n");
+            pthread_exit(0);
+        }
+        else {
+            printf("Socket Nommé\n");
+            if(listen(dSFC, 7) == -1){  //mets en position d'écoute
+                shutdown(dSF,2);
+                fprintf(stderr,"problème à initialiser l'écoute\n");
+                pthread_exit(0);
+            }
+            else {
+                printf("Mode écoute\n");
+                return dSFC;
+            }
+        }
+    }
+}
+
+void recvFichier(dSFC){
+    FILE* fic;
+    int taille;
+    char* name;
+    recv()
+    fic = fopen()
+}
+
+void main (void)
+{
+    FILE* fic ;
+    short int tablo[NB_ELTS] = {1,2,3,4,5 } ;
+    /* Ouverture du fichier (en Ã©criture binaire) : */
+    fic = fopen( "exemple.dat", "wb") ;
+    if ( fic==NULL )
+    {
+        printf("Ouverture du fichier impossible !");
+        exit(0);
+    }
+    /* Ecriture dans le fichier (ici, deux fois la mÃªme donnÃ©e, de deux faÃ§ons diffÃ©rentes) : */
+    /* Voici 2 faÃ§ons diffÃ©rentes de stocker un tableau (la 1Ã¨re est plus claire) : */
+    fwrite ( tablo, sizeof(short int), NB_ELTS, fic );
+    /* on stocke NB_ELTS Ã©lÃ©ments de taille fournie par sizeof */
+    fwrite ( tablo, 1, sizeof(tablo), fic );
+    /* on stocke un nombre d'octets Ã©gal Ã  sizeof(tablo) */
+    /* Fermeture du fichier : */
+    fclose( fic ) ;
+}
+
+
+
 //initialise la communication entre le client et le serveur
 //Entrée : le socket d'écoute
 //Sortie : renvoie rien, lance la fonction du pseudo avec le socket créé si la communication peut s'opérer

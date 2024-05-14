@@ -79,6 +79,14 @@ bool envoie(int dS, char** msg,bool* continu, char* pseudo){
         if(strcmp(*msg,"/quitter") == 0 || strcmp(*msg,"/fermeture") == 0){
             res = false;
         }
+        if(strcmp(getCommande(*msg),"/sendFile") == 0){
+            pthread_t th_file;
+            if (pthread_create(&th_file, NULL, thread_fichier, (void*)&getPath(*msg)) == -1) { //lance le thread propagation
+                shutdown(dS,2);
+                fprintf(stderr, "Erreur lors de la création du thread d'envoie\n");
+            }
+            msg[0]='\0';
+        }
         int taille = strlen(*msg)+1; //on récupère la taille du message (+1 pour le caractère de '\0')
         if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == -1){ //envoie de la taille et le message
             res = false;
@@ -118,7 +126,9 @@ void* propagation(void* args_thread){
         pthread_mutex_lock(&M1); //bloque l'accès au booléen (car peut être écrit pendant sa lecture)
         continu = *(args.continu); //met à jour le booléen si modifié par la fonction propagation
         pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
-        continu = envoie(args.dS,&msg,args.continu,args.pseudo); 
+        if (msg[0] != '\0'){
+            continu = envoie(args.dS,&msg,args.continu,args.pseudo); 
+        }
     }
     pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
     *args.continu = false; 
@@ -158,6 +168,133 @@ char* choixPseudo(int dS){
         }
     }
     return msg;
+}
+
+void lecture_fichier(char* path,int dSF){
+    File* fic;
+    short int Taille_buf = found_taille(path)
+    short int buffer[Taille_buf];
+    short int i, nb_val_lues = Taille_buf
+    int err;
+
+    fic = fopen(path,"rb");
+    if(fic==NULL) {
+        printf("ouverture du fichier impossible !");
+        finFichier(dSF);
+    }
+    err = send(dSF,&Taille_buf,sizeof(short int), 0);
+    if (err == 0 | err == -1){
+        printf("erreur d'envoie de la taille du fichier")
+        finFichier(dSF);
+    }
+    char* name = getNameFile(path);
+    err = send(dSF,name,sizeof(short int), 0);
+    if (err == 0 | err == -1){
+        printf("erreur envoie du nom du fichier");
+        finFichier(dSF);
+    }
+    printf("Liste des valeurs lues : \n");
+    while ( nb_val_lues <= TAILLE_BUF ){
+        nb_val_lues = fread(buffer, sizeof(short int), TAILLE_BUF, fic);
+        for (i=0; i<nb_val_lues; i++) printf( "%hd", buffer[i] ){
+            err = send(dSF,buffer[i] ,sizeof(short int),0);
+            if (err == 0 | err == -1){
+                printf("erreur pendant l'envoie du fichier")
+                finFichier(dSF);
+            }
+        }
+    }
+    finFichier(dSF);
+}
+
+char* getNameFile(char* path){
+    pos = findLastSlash(path);
+    name = (char*)malloc(sizeof(char)*(strlen(path)-pos+1));
+    for(int i = 0;pos+i<path;i++){
+        name[i] = path[pos+i];
+    }
+    return name;
+}
+
+char* findLastSlash(char* path){
+    int i = strlen(path)-1;
+    bool found = false;
+    while (i<0 && !found) {
+        if (path[i] == '/'){
+            found = true;
+        }
+        i++;
+    }
+    return i;
+}
+
+void finFichier(dSF){
+    shutdown(dSF);
+    pthread_exit(0);
+}
+
+void thread_fichier(void* args_thread) {
+    char* path = (char*)args_thread
+    int dSF = socket(PF_INET, SOCK_STREAM, 0); //crée le socket
+    struct sockaddr_in aS;
+    aS.sin_family = AF_INET;
+    inet_pton(AF_INET,argv[1],&(aS.sin_addr)) ; 
+    aS.sin_port = htons(atoi(argv[2])+1) ;
+    socklen_t lgA = sizeof(struct sockaddr_in) ;
+    if (connect(dSF, (struct sockaddr *) &aS, lgA) == -1) { //se connecte au serveur
+        shutdown(dSF,2);
+        fprintf(stderr, "Erreur lors de la création de la connexion\n");
+        pthread_exit(0); //fin du programme
+    }
+    lecture_fichier(path,dSF);   
+}
+
+long foundTaille(char* path){
+    FILE *fichier;
+    long taille;
+    fichier = fopen("nom_du_fichier", "rb");
+    if (fichier == NULL) {
+        printf("Impossible d'ouvrir le fichier.\n");
+        return 1;
+    }
+    fseek(fichier, 0, SEEK_END);
+    taille = ftell(fichier);
+    fclose(fichier);
+    printf("La taille du fichier est : %ld octets\n", taille);
+    return taille;
+}
+
+char* getCommande(char* commande){
+    int pos = foundSpace(commande);
+    char* res = (char*)malloc(sizeof(char)*pos+1)
+    bool stop = false;
+    while(i<strlen(commande) && !stop){
+        if (commande[i] == ' '){
+            stop = true;
+        }
+    }
+    return res
+}
+
+char* getPath(char* commande){
+    int pos = foundSpace(commande);
+    char* path = (char*)malloc(sizeof(char)*(strlen(commande)-pos+1))
+    for(int i=0;i+pos<strlen(commande);i++){
+        path[i] = commande[pos+i];
+    }
+    return path;
+}
+
+int foundSpace(char* commande){
+    int i = 0;
+    bool found = false;
+    while (i<strlen(commande) && !found) {
+        if (path[i] == ' '){
+            found = true;
+        }
+        i++;
+    }
+    return i;
 }
 
 //--------------------------------------main--------------------------------------------
