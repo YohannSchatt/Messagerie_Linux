@@ -12,7 +12,8 @@
 
 #define NB_MAX_PERSONNE 3 //limite max de personne sur le serveur
 int  NB_PERSONNE_ACTUELLE = 0;//compteur du nombre de personne connecté
-
+int PORT;
+ 
 pthread_mutex_t M1 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au tableau des sockets clients
 pthread_mutex_t M2 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au nombre  des sockets clients
 
@@ -382,11 +383,6 @@ void* choixPseudo(void* args_thread){
     pthread_exit(0);
 }
 
-void thread_file(void * args_thread){
-    int dSFC = initSocketFile(atoi(argv[1])+1);
-    recvFichier(dSFC)
-}
-
 int initSocketFile(int port){
     int dSFC = socket(PF_INET, SOCK_STREAM, 0); //crée le socket en TCP
     if (dSFC == -1){
@@ -400,14 +396,14 @@ int initSocketFile(int port){
         ad.sin_addr.s_addr = INADDR_ANY ;
         ad.sin_port = htons(port) ;
         if (bind(dSFC, (struct sockaddr*)&ad, sizeof(ad)) == -1) { //Donne un nom au socket
-            shutdown(dSF,2);
+            shutdown(dSFC,2);
             fprintf(stderr,"problème de nommage du socket\n");
             pthread_exit(0);
         }
         else {
             printf("Socket Nommé\n");
             if(listen(dSFC, 7) == -1){  //mets en position d'écoute
-                shutdown(dSF,2);
+                shutdown(dSFC,2);
                 fprintf(stderr,"problème à initialiser l'écoute\n");
                 pthread_exit(0);
             }
@@ -419,33 +415,46 @@ int initSocketFile(int port){
     }
 }
 
-void recvFichier(dSFC){
+void recvFichier(int dSFC){
     FILE* fic;
     int taille;
     char* name;
-    recv()
-    fic = fopen()
+    int err = recv(dSFC,&taille,sizeof(int),0);
+    if (err == 0 || err == -1) {
+        shutdown(dSFC,2);
+        fprintf(stderr,"problème de reception de la taille d'un fichier\n");
+        pthread_exit(0); 
+    }
+    err = recv(dSFC,name,sizeof(int)*(taille+1),0);
+    if (err == 0 || err == -1) {
+        shutdown(dSFC,2);
+        fprintf(stderr,"problème de reception de la taille d'un fichier\n");
+        pthread_exit(0); 
+    }
+    fic = fopen(name,"wb");
+    short int taille_fic_recu;
+    short int* buffer;
+    while( taille_fic_recu < taille ) {
+        err = recv(dSFC,&taille_fic_recu,sizeof(short int)*(taille+1),0);
+        if (err == 0 || err == -1){
+            shutdown(dSFC,2);
+            fprintf(stderr,"problème de reception de la taille d'un fichier\n");
+            pthread_exit(0); 
+        }
+        err = recv(dSFC,buffer,sizeof(short int)*(taille_fic_recu),0);
+        if (err == 0 || err == -1) {
+            shutdown(dSFC,2);
+            fprintf(stderr,"problème de reception de la taille d'un fichier\n");
+            pthread_exit(0); 
+        }
+        fwrite(buffer, sizeof(short int),1,fic);
+    }
+    pthread_exit(0);
 }
 
-void main (void)
-{
-    FILE* fic ;
-    short int tablo[NB_ELTS] = {1,2,3,4,5 } ;
-    /* Ouverture du fichier (en Ã©criture binaire) : */
-    fic = fopen( "exemple.dat", "wb") ;
-    if ( fic==NULL )
-    {
-        printf("Ouverture du fichier impossible !");
-        exit(0);
-    }
-    /* Ecriture dans le fichier (ici, deux fois la mÃªme donnÃ©e, de deux faÃ§ons diffÃ©rentes) : */
-    /* Voici 2 faÃ§ons diffÃ©rentes de stocker un tableau (la 1Ã¨re est plus claire) : */
-    fwrite ( tablo, sizeof(short int), NB_ELTS, fic );
-    /* on stocke NB_ELTS Ã©lÃ©ments de taille fournie par sizeof */
-    fwrite ( tablo, 1, sizeof(tablo), fic );
-    /* on stocke un nombre d'octets Ã©gal Ã  sizeof(tablo) */
-    /* Fermeture du fichier : */
-    fclose( fic ) ;
+void thread_file(void * args_thread){
+    int dSFC = initSocketFile(PORT+1);
+    recvFichier(dSFC);
 }
 
 
@@ -506,7 +515,7 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, ArretForce); //Ajout du signal de fin ctrl+c
 
     int dS = init_ouverture_connexion(atoi(argv[1])); //on crée le socket de communication 
-
+    PORT = atoi(argv[1]);
     init_connexion(dS); //lancement de la connexion des clients
     shutdown(dS,2); //fin du socket de communication
     printf("fin programme");

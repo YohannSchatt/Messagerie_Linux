@@ -16,6 +16,9 @@ pthread_t th_recept;
 pthread_mutex_t M1 = PTHREAD_MUTEX_INITIALIZER; //création du mutex qui permet d'assurer l'exclusion mutuelle pour la variable continu
 
 int d = -1; //variable qui stocke dS (quand il est défini) pour l'arrêt forcé du serveur
+int PORT;
+char* IP;
+
 
 struct Args_Thread { //structure permettant de transférer les arguments dans les différents threads
     int dS; //le socket du serveur
@@ -31,6 +34,138 @@ void ArretForce(int n) {
         shutdown(d,2);
     }
     exit(0);
+}
+
+void finFichier(int dSF){
+    shutdown(dSF,2);
+    pthread_exit(0);
+}
+
+int foundSpace(char* commande){
+    int i = 0;
+    bool found = false;
+    while (i<strlen(commande) && !found) {
+        if (commande[i] == ' '){
+            found = true;
+        }
+        i++;
+    }
+    return i;
+}
+
+long foundTaille(char* path){
+    FILE *fichier;
+    long taille;
+    fichier = fopen("nom_du_fichier", "rb");
+    if (fichier == NULL) {
+        printf("Impossible d'ouvrir le fichier.\n");
+        return 0;
+    }
+    fseek(fichier, 0, SEEK_END);
+    taille = ftell(fichier);
+    fclose(fichier);
+    printf("La taille du fichier est : %ld octets\n", taille);
+    return taille;
+}
+
+char* getCommande(char* commande){
+    int pos = foundSpace(commande);
+    char* res = (char*)malloc(sizeof(char)*pos+1);
+    bool stop = false;
+    int i = 0;
+    while(i<strlen(commande) && !stop){
+        if (commande[i] == ' '){
+            stop = true;
+        }
+        i++;
+    }
+    return res;
+}
+
+char* getPath(char* commande){
+    int pos = foundSpace(commande);
+    char* path = (char*)malloc(sizeof(char)*(strlen(commande)-pos+1));
+    for(int i=0;i+pos<strlen(commande);i++){
+        path[i] = commande[pos+i];
+    }
+    return path;
+}
+
+int findLastSlash(char* path){
+    int i = strlen(path)-1;
+    bool found = false;
+    while (i<0 && !found) {
+        if (path[i] == '/'){
+            found = true;
+        }
+        i++;
+    }
+    return i;
+}
+
+char* getNameFile(char* path){
+    int pos = findLastSlash(path);
+    char* name = (char*)malloc(sizeof(char)*(strlen(path)-pos+1));
+    for(int i = 0;pos+i<strlen(path);i++){
+        name[i] = path[pos+i];
+    }
+    return name;
+}
+
+void* lecture_fichier(char* path,int dSF){
+    FILE* fic;
+    short int Taille_buf = foundTaille(path);
+    short int buffer[Taille_buf];
+    short int i, nb_val_lues = Taille_buf;
+    int err;
+
+    fic = fopen(path,"rb");
+    if(fic==NULL) {
+        printf("ouverture du fichier impossible !");
+        finFichier(dSF);
+    }
+    err = send(dSF,&Taille_buf,sizeof(short int), 0);
+    if (err == 0 | err == -1){
+        printf("erreur d'envoie de la taille du fichier");
+        finFichier(dSF);
+    }
+    char* name = getNameFile(path);
+    err = send(dSF,name,sizeof(short int), 0);
+    if (err == 0 | err == -1){
+        printf("erreur envoie du nom du fichier");
+        finFichier(dSF);
+    }
+    printf("Liste des valeurs lues : \n");
+    while ( nb_val_lues == Taille_buf ){
+        nb_val_lues = fread(buffer, sizeof(short int), Taille_buf, fic);
+        err = send (dSF,&nb_val_lues,sizeof(short int), 0);
+        if (err == 0 | err == -1){
+            printf("erreur pendant l'envoie des valeurs lu du fichier");
+            finFichier(dSF);
+        }
+        err = send(dSF,buffer,sizeof(short int),0);
+        if (err == 0 | err == -1){
+            printf("erreur pendant l'envoie du fichier");
+            finFichier(dSF);
+        }
+    }
+    finFichier(dSF);
+}
+
+void* thread_fichier(void* args_thread) {
+    char* path = (char*)args_thread;
+    int dSF = socket(PF_INET, SOCK_STREAM, 0); //crée le socket
+    struct sockaddr_in aS;
+    aS.sin_family = AF_INET;
+    inet_pton(AF_INET,IP,&(aS.sin_addr)); 
+    aS.sin_port = htons(PORT+1) ;
+    socklen_t lgA = sizeof(struct sockaddr_in) ;
+    if (connect(dSF, (struct sockaddr *) &aS, lgA) == -1) { //se connecte au serveur
+        shutdown(dSF,2);
+        fprintf(stderr, "Erreur lors de la création de la connexion\n");
+        pthread_exit(0); //fin du programme
+    }
+    lecture_fichier(path,dSF);   
 }
 
 //Fonction de lecture des messages et affiche les messages reçu des autres clients
@@ -81,8 +216,7 @@ bool envoie(int dS, char** msg,bool* continu, char* pseudo){
         }
         if(strcmp(getCommande(*msg),"/sendFile") == 0){
             pthread_t th_file;
-            if (pthread_create(&th_file, NULL, thread_fichier, (void*)&getPath(*msg)) == -1) { //lance le thread propagation
-                shutdown(dS,2);
+            if (pthread_create(&th_file, NULL, thread_fichier, (void*)(getPath(*msg))) == -1) { //lance le thread propagation
                 fprintf(stderr, "Erreur lors de la création du thread d'envoie\n");
             }
             msg[0]='\0';
@@ -170,139 +304,14 @@ char* choixPseudo(int dS){
     return msg;
 }
 
-void lecture_fichier(char* path,int dSF){
-    File* fic;
-    short int Taille_buf = found_taille(path)
-    short int buffer[Taille_buf];
-    short int i, nb_val_lues = Taille_buf
-    int err;
-
-    fic = fopen(path,"rb");
-    if(fic==NULL) {
-        printf("ouverture du fichier impossible !");
-        finFichier(dSF);
-    }
-    err = send(dSF,&Taille_buf,sizeof(short int), 0);
-    if (err == 0 | err == -1){
-        printf("erreur d'envoie de la taille du fichier")
-        finFichier(dSF);
-    }
-    char* name = getNameFile(path);
-    err = send(dSF,name,sizeof(short int), 0);
-    if (err == 0 | err == -1){
-        printf("erreur envoie du nom du fichier");
-        finFichier(dSF);
-    }
-    printf("Liste des valeurs lues : \n");
-    while ( nb_val_lues <= TAILLE_BUF ){
-        nb_val_lues = fread(buffer, sizeof(short int), TAILLE_BUF, fic);
-        for (i=0; i<nb_val_lues; i++) printf( "%hd", buffer[i] ){
-            err = send(dSF,buffer[i] ,sizeof(short int),0);
-            if (err == 0 | err == -1){
-                printf("erreur pendant l'envoie du fichier")
-                finFichier(dSF);
-            }
-        }
-    }
-    finFichier(dSF);
-}
-
-char* getNameFile(char* path){
-    pos = findLastSlash(path);
-    name = (char*)malloc(sizeof(char)*(strlen(path)-pos+1));
-    for(int i = 0;pos+i<path;i++){
-        name[i] = path[pos+i];
-    }
-    return name;
-}
-
-char* findLastSlash(char* path){
-    int i = strlen(path)-1;
-    bool found = false;
-    while (i<0 && !found) {
-        if (path[i] == '/'){
-            found = true;
-        }
-        i++;
-    }
-    return i;
-}
-
-void finFichier(dSF){
-    shutdown(dSF);
-    pthread_exit(0);
-}
-
-void thread_fichier(void* args_thread) {
-    char* path = (char*)args_thread
-    int dSF = socket(PF_INET, SOCK_STREAM, 0); //crée le socket
-    struct sockaddr_in aS;
-    aS.sin_family = AF_INET;
-    inet_pton(AF_INET,argv[1],&(aS.sin_addr)) ; 
-    aS.sin_port = htons(atoi(argv[2])+1) ;
-    socklen_t lgA = sizeof(struct sockaddr_in) ;
-    if (connect(dSF, (struct sockaddr *) &aS, lgA) == -1) { //se connecte au serveur
-        shutdown(dSF,2);
-        fprintf(stderr, "Erreur lors de la création de la connexion\n");
-        pthread_exit(0); //fin du programme
-    }
-    lecture_fichier(path,dSF);   
-}
-
-long foundTaille(char* path){
-    FILE *fichier;
-    long taille;
-    fichier = fopen("nom_du_fichier", "rb");
-    if (fichier == NULL) {
-        printf("Impossible d'ouvrir le fichier.\n");
-        return 1;
-    }
-    fseek(fichier, 0, SEEK_END);
-    taille = ftell(fichier);
-    fclose(fichier);
-    printf("La taille du fichier est : %ld octets\n", taille);
-    return taille;
-}
-
-char* getCommande(char* commande){
-    int pos = foundSpace(commande);
-    char* res = (char*)malloc(sizeof(char)*pos+1)
-    bool stop = false;
-    while(i<strlen(commande) && !stop){
-        if (commande[i] == ' '){
-            stop = true;
-        }
-    }
-    return res
-}
-
-char* getPath(char* commande){
-    int pos = foundSpace(commande);
-    char* path = (char*)malloc(sizeof(char)*(strlen(commande)-pos+1))
-    for(int i=0;i+pos<strlen(commande);i++){
-        path[i] = commande[pos+i];
-    }
-    return path;
-}
-
-int foundSpace(char* commande){
-    int i = 0;
-    bool found = false;
-    while (i<strlen(commande) && !found) {
-        if (path[i] == ' '){
-            found = true;
-        }
-        i++;
-    }
-    return i;
-}
-
 //--------------------------------------main--------------------------------------------
 //Fonction principale du programme
 //pour lancer le programme il faut écrite : ./client "IP" "Port"
 int main(int argc, char* argv[]){
 
     signal(SIGINT, ArretForce);
+    IP = argv[1];
+    PORT = atoi(argv[2]);
 
     if (argc != 3) { //si le programme n'a pas 2 arguments
         printf("./client IP Port\n");
