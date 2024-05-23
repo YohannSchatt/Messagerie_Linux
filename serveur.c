@@ -36,7 +36,7 @@ struct client {
     pthread_t thread; //son thread
 };
 
-struct client tabdSC[NB_MAX_PERSONNE+1]; //tableau des sockets des clients
+struct client tabdSC[NB_MAX_PERSONNE+2]; //tableau des sockets des clients
 
 //Fonction qui prend en paramètre un socket et l'id dans le tableau
 // elle va supprimer le client du tableau puis fermer le socket
@@ -243,6 +243,55 @@ void envoyer_manuel(int dSC) {
     }
 }
 
+void recvFichier(int dSFC){
+    FILE* fic;
+    int taille_name;
+    char* name;
+    printf("reception fichier\n");
+    int err = recv(dSFC,&taille,sizeof(int),0);
+    if (err == 0 || err == -1) {
+        shutdown(dSFC,2);
+        fprintf(stderr,"problème de reception de la taille d'un fichier\n");
+        pthread_exit(0); 
+    }
+    err = recv(dSFC,name,sizeof(char)*(taille),0);
+    if (err == 0 || err == -1) {
+        shutdown(dSFC,2);
+        fprintf(stderr,"problème de reception de la taille d'un fichier\n");
+        pthread_exit(0); 
+    }
+    fic = fopen(name,"wb");
+    short int taille_fic_recu;
+    short int* buffer;
+    while( taille_fic_recu < taille ) {
+        err = recv(dSFC,&taille_fic_recu,sizeof(short int)*(taille+1),0);
+        if (err == 0 || err == -1){
+            shutdown(dSFC,2);
+            fprintf(stderr,"problème de reception de la taille d'un fichier\n");
+            pthread_exit(0); 
+        }
+        err = recv(dSFC,buffer,sizeof(short int)*(taille_fic_recu),0);
+        if (err == 0 || err == -1) {
+            shutdown(dSFC,2);
+            fprintf(stderr,"problème de reception de la taille d'un fichier\n");
+            pthread_exit(0); 
+        }
+        fwrite(buffer, sizeof(short int),1,fic);
+    }
+    pthread_exit(0);
+}
+
+void* thread_file(void * args_thread){
+    int dSF = initSocketFile(PORT+1);
+    struct sockaddr_in aC ; //structure du socket
+    socklen_t lg = sizeof(struct sockaddr_in) ; 
+    int dSFC = accept(dSF, (struct sockaddr*) &aC,&lg); //crée le socket client
+        if (dSFC == -1) { //gestion de l'erreur de accept
+            printf("problème de connexion\n");
+        }
+    recvFichier(dSFC);
+}
+
 bool protocol(char *msg, struct mem_Thread args){
     bool res = true;
     if (msg[0] == '@'){
@@ -260,6 +309,10 @@ bool protocol(char *msg, struct mem_Thread args){
         }
         else if (strcmp("/fermeture",msg) == 0){
             ArretForce(0);
+        }
+        else if (strcmp("/sendFile",msg) == 0){
+            pthread_t th_file;
+            pthread_create(&th_file, NULL,thread_file,NULL);
         }
         else {
             envoie(args.dSC, "Commande inconnu faite /help pour plus d'information");
@@ -415,46 +468,8 @@ int initSocketFile(int port){
     }
 }
 
-void recvFichier(int dSFC){
-    FILE* fic;
-    int taille;
-    char* name;
-    int err = recv(dSFC,&taille,sizeof(int),0);
-    if (err == 0 || err == -1) {
-        shutdown(dSFC,2);
-        fprintf(stderr,"problème de reception de la taille d'un fichier\n");
-        pthread_exit(0); 
-    }
-    err = recv(dSFC,name,sizeof(int)*(taille+1),0);
-    if (err == 0 || err == -1) {
-        shutdown(dSFC,2);
-        fprintf(stderr,"problème de reception de la taille d'un fichier\n");
-        pthread_exit(0); 
-    }
-    fic = fopen(name,"wb");
-    short int taille_fic_recu;
-    short int* buffer;
-    while( taille_fic_recu < taille ) {
-        err = recv(dSFC,&taille_fic_recu,sizeof(short int)*(taille+1),0);
-        if (err == 0 || err == -1){
-            shutdown(dSFC,2);
-            fprintf(stderr,"problème de reception de la taille d'un fichier\n");
-            pthread_exit(0); 
-        }
-        err = recv(dSFC,buffer,sizeof(short int)*(taille_fic_recu),0);
-        if (err == 0 || err == -1) {
-            shutdown(dSFC,2);
-            fprintf(stderr,"problème de reception de la taille d'un fichier\n");
-            pthread_exit(0); 
-        }
-        fwrite(buffer, sizeof(short int),1,fic);
-    }
-    pthread_exit(0);
-}
+void thread_accept(dSCF){
 
-void thread_file(void * args_thread){
-    int dSFC = initSocketFile(PORT+1);
-    recvFichier(dSFC);
 }
 
 
@@ -515,8 +530,10 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, ArretForce); //Ajout du signal de fin ctrl+c
 
     int dS = init_ouverture_connexion(atoi(argv[1])); //on crée le socket de communication 
+    int dSF = initSocketFile(atoi(argv[1])+1);
     PORT = atoi(argv[1]);
     init_connexion(dS); //lancement de la connexion des clients
+    
     shutdown(dS,2); //fin du socket de communication
     printf("fin programme");
 }

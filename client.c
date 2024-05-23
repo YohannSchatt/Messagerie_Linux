@@ -9,6 +9,9 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <signal.h>
+#include <dirent.h>
+
+#define MAX_FILE 200 //limite max de personne sur le serveur
 
 pthread_t th_envoie; //création des 2 threads, celui qui va lire les messages reçu et celui qui envoie son message au serveur
 pthread_t th_recept;
@@ -38,6 +41,7 @@ void ArretForce(int n) {
 
 void finFichier(int dSF){
     shutdown(dSF,2);
+    printf("fin fichier\n");
     pthread_exit(0);
 }
 
@@ -45,7 +49,7 @@ int foundSpace(char* commande){
     int i = 0;
     bool found = false;
     while (i<strlen(commande) && !found) {
-        if (commande[i] == ' '){
+        if (commande[i] == ' ' || commande[i] == '\0'){
             found = true;
         }
         i++;
@@ -77,6 +81,7 @@ char* getCommande(char* commande){
         if (commande[i] == ' '){
             stop = true;
         }
+        res[i] = commande[i];
         i++;
     }
     return res;
@@ -112,37 +117,43 @@ char* getNameFile(char* path){
     return name;
 }
 
-void* lecture_fichier(char* path,int dSF){
+void* lecture_fichier(char* nameFile,int dSF){
     FILE* fic;
-    short int Taille_buf = foundTaille(path);
+    char* file = "file/";
+    char* path = (char*)malloc(sizeof(char)*(8+strlen(nameFile)));
+    path[0] = '\0'; //pour éviter de modifier des parties de mémoire ou on a pas accès
+    strcat(path,file);
+    strcat(path,nameFile);
+    printf("%s\n",path);
+    fic = fopen(path,"rb");
+    short int Taille_buf = 256;
     short int buffer[Taille_buf];
     short int i, nb_val_lues = Taille_buf;
     int err;
-
-    fic = fopen(path,"rb");
     if(fic==NULL) {
         printf("ouverture du fichier impossible !");
         finFichier(dSF);
     }
-    err = send(dSF,&Taille_buf,sizeof(short int), 0);
+    int taille_nameFile = strlen(nameFile)+1;
+    err = send(dSF,&taille_nameFile,sizeof(int), 0);
     if (err == 0 | err == -1){
         printf("erreur d'envoie de la taille du fichier");
         finFichier(dSF);
     }
-    char* name = getNameFile(path);
-    err = send(dSF,name,sizeof(short int), 0);
+    err = send(dSF,nameFile,sizeof(char)*(taille_nameFile), 0);
     if (err == 0 | err == -1){
         printf("erreur envoie du nom du fichier");
         finFichier(dSF);
     }
-    printf("Liste des valeurs lues : \n");
     while ( nb_val_lues == Taille_buf ){
+        printf("je lis le fichier");
         nb_val_lues = fread(buffer, sizeof(short int), Taille_buf, fic);
         err = send (dSF,&nb_val_lues,sizeof(short int), 0);
         if (err == 0 | err == -1){
             printf("erreur pendant l'envoie des valeurs lu du fichier");
             finFichier(dSF);
         }
+        printf("j'envoie le fichier");
         err = send(dSF,buffer,sizeof(short int),0);
         if (err == 0 | err == -1){
             printf("erreur pendant l'envoie du fichier");
@@ -152,7 +163,48 @@ void* lecture_fichier(char* path,int dSF){
     finFichier(dSF);
 }
 
+char* Interface_choix_fichier() {
+    struct dirent *entry;
+    DIR *dp;
+    char *filenames[MAX_FILE];
+    dp = opendir("./file");
+    if (dp == NULL) {
+        perror("opendir");
+    }
+    else {
+        int i = 0;
+        while ((entry = readdir(dp))) {
+            if (entry->d_name[0] != '.' && i < MAX_FILE) {
+            filenames[i] = strdup(entry->d_name);
+            printf("%d : %s\n", i,filenames[i]);
+            i++;
+            }
+        }
+        int file_count = i;
+        char* msg = (char*)malloc(sizeof(char)*16);
+        printf("\33[2K\r");
+        printf("écrivez un entier : ");
+        fgets(msg,16,stdin);
+        if (atoi(msg) < file_count && atoi(msg) >= 0){
+            char* nameFile = strdup(filenames[atoi(msg)]);
+            for (int j = 0; j < file_count; j++) {
+                free(filenames[j]);
+            }
+            return nameFile;
+        }
+        else {
+            printf("Choix invalide.\n");
+            for (int j = 0; j < file_count; j++) {
+                free(filenames[j]);
+            }
+            closedir(dp);
+            return NULL;
+        }
+    }
+}
+
 void* thread_fichier(void* args_thread) {
+    char* nameFile = Interface_choix_fichier();
     char* path = (char*)args_thread;
     int dSF = socket(PF_INET, SOCK_STREAM, 0); //crée le socket
     struct sockaddr_in aS;
@@ -165,7 +217,9 @@ void* thread_fichier(void* args_thread) {
         fprintf(stderr, "Erreur lors de la création de la connexion\n");
         pthread_exit(0); //fin du programme
     }
-    lecture_fichier(path,dSF);   
+    printf("coucou\n");
+    lecture_fichier(nameFile,dSF);
+    pthread_exit(0);   
 }
 
 //Fonction de lecture des messages et affiche les messages reçu des autres clients
@@ -185,14 +239,14 @@ bool lecture(int dS, bool* continu,char* pseudo){
             res = false;
         }
         else {
-            pthread_mutex_lock(&M1); //on bloque l'accès au booléen car il peut être changé pendant la lecture
+            //pthread_mutex_lock(&M1); //on bloque l'accès au booléen car il peut être changé pendant la lecture
             if (*continu){
                 printf("\33[2K\r");
                 puts(msg);
                 printf("%s : ", pseudo);
                 setbuf(stdout, NULL);
             }
-            pthread_mutex_unlock(&M1); //on réouvre l'accès
+            //pthread_mutex_unlock(&M1); //on réouvre l'accès
         }
         free(msg);
     }
@@ -204,27 +258,30 @@ bool lecture(int dS, bool* continu,char* pseudo){
 //Sortie : un booléen si il reçoit "fin" alors false, sinon true 
 bool envoie(int dS, char** msg,bool* continu, char* pseudo){
     bool res = true;
-    pthread_mutex_lock(&M1);
+    //pthread_mutex_lock(&M1);
     if (*continu){
-        pthread_mutex_unlock(&M1);
+        //pthread_mutex_unlock(&M1);
         fgets(*msg,128,stdin);
-        printf("%s : ", pseudo); //affichage en dessous comme le message de join va permettre d'afficher avant
         char *pos = strchr(*msg,'\n'); //cherche le '\n' 
         *pos = '\0'; // le change en '\0' pour la fin du message et la cohérence de l'affichage
         if(strcmp(*msg,"/quitter") == 0 || strcmp(*msg,"/fermeture") == 0){
             res = false;
         }
+        if (*msg[0] != '\0'){
+            int taille = strlen(*msg)+1; //on récupère la taille du message (+1 pour le caractère de '\0')
+            if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == -1){ //envoie de la taille et le message
+                res = false;
+            }
+        }
         if(strcmp(getCommande(*msg),"/sendFile") == 0){
             pthread_t th_file;
-            if (pthread_create(&th_file, NULL, thread_fichier, (void*)(getPath(*msg))) == -1) { //lance le thread propagation
+            printf("\33[2K\r");
+            if (pthread_create(&th_file, NULL, thread_fichier, NULL) == -1) { //lance le thread propagation
                 fprintf(stderr, "Erreur lors de la création du thread d'envoie\n");
             }
-            msg[0]='\0';
         }
-        int taille = strlen(*msg)+1; //on récupère la taille du message (+1 pour le caractère de '\0')
-        if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == -1){ //envoie de la taille et le message
-            res = false;
-        }
+        sleep(20); 
+        printf("%s : ", pseudo); //affichage en dessous comme le message de join va permettre d'afficher avant
         return res;
     }
     return false;
@@ -237,14 +294,14 @@ void* reception(void* args_thread) {
     struct Args_Thread args = *((struct Args_Thread*)args_thread); //récupère les arguments
     bool continu = *(args.continu);
     while(continu){ 
-        pthread_mutex_lock(&M1); //bloque l'accès au booléen (car peut être écrit pendant sa lecture)
+        //pthread_mutex_lock(&M1); //bloque l'accès au booléen (car peut être écrit pendant sa lecture)
         continu = *(args.continu);
-        pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
+        //pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
         continu = lecture(args.dS,args.continu,args.pseudo);
     }
-    pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
+    //pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
     *args.continu = false;
-    pthread_mutex_unlock(&M1); //on redonne l'accès
+    //pthread_mutex_unlock(&M1); //on redonne l'accès
     pthread_exit(EXIT_SUCCESS);
 }
 
@@ -257,16 +314,14 @@ void* propagation(void* args_thread){
     struct Args_Thread args = *((struct Args_Thread*)args_thread); //récupère les arguments
     bool continu = true;
     while(continu){
-        pthread_mutex_lock(&M1); //bloque l'accès au booléen (car peut être écrit pendant sa lecture)
+        //pthread_mutex_lock(&M1); //bloque l'accès au booléen (car peut être écrit pendant sa lecture)
         continu = *(args.continu); //met à jour le booléen si modifié par la fonction propagation
-        pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
-        if (msg[0] != '\0'){
-            continu = envoie(args.dS,&msg,args.continu,args.pseudo); 
-        }
+        //pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
+        continu = envoie(args.dS,&msg,args.continu,args.pseudo);
     }
-    pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
+    //pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
     *args.continu = false; 
-    pthread_mutex_unlock(&M1); //on redonne l'accès
+    //pthread_mutex_unlock(&M1); //on redonne l'accès
     free(msg);
     pthread_exit(EXIT_SUCCESS);
 }
