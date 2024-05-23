@@ -124,7 +124,7 @@ void envoie_everyone_serveur(char* msg){
     }
     pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
 }
-
+ 
 void envoie_prive_client(char* msg,char* pseudo,struct mem_Thread args){
     int i = 0;
     bool envoye = false;
@@ -459,3 +459,4 @@ int main(int argc, char *argv[]) {
     shutdown(dS,2); //fin du socket de communication
     printf("fin programme");
 }
+

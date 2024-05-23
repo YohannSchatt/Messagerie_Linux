@@ -1,5 +1,4 @@
 
-Et j'ai un fichier client.c:
 // BUT DU PROG : Ce programme, client.c, est un client TCP simple permettant d'échanger des messages avec un serveur distant
 
 #include <stdio.h>
