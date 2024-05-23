@@ -1,17 +1,16 @@
-
-//BUT DU PROG : Ce programme est un serveur de chat qui accepte les connexions de deux clients simultanément et facilite la communication entre eux.
+J'aimerais que la commande "/getFile" permet à l'utilisateur de choisir quel fichier présent sur le serveur il veut afficher . J'ai un serveur.c : '//BUT DU PROG : Ce programme est un serveur de chat qui accepte les connexions de deux clients simultanément et facilite la communication entre eux.
 #include <stdio.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include <pthread.h>
 #include <signal.h>
 #include <semaphore.h>
 
-#define NB_MAX_PERSONNE 3 //limite max de personne sur le serveur
+#define NB_MAX_PERSONNE 3
 int  NB_PERSONNE_ACTUELLE = 0;//compteur du nombre de personne connecté
 
 pthread_mutex_t M1 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au tableau des sockets clients
@@ -254,6 +253,32 @@ void envoyer_manuel(int dSC) {
     }
 }
 
+// Fonction pour envoyer le contenu d'un fichier au client
+void sendFileContent(int dSC, const char* filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        char *error = "Erreur : Impossible d'ouvrir le fichier\n";
+        int errorSize = strlen(error) + 1;
+        send(dSC, &errorSize, sizeof(int), 0);
+        send(dSC, error, errorSize, 0);
+        return;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long fileSize = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char *fileContent = (char *)malloc(fileSize + 1);
+    fread(fileContent, 1, fileSize, file);
+    fclose(file);
+
+    fileContent[fileSize] = '\0';
+    send(dSC, &fileSize, sizeof(long), 0);
+    send(dSC, fileContent, fileSize + 1, 0);
+
+    free(fileContent);
+}
+
 bool protocol(char *msg, struct mem_Thread args){
     bool res = true;
     if (msg[0] == '@'){
@@ -275,6 +300,10 @@ bool protocol(char *msg, struct mem_Thread args){
         else if (strcmp("/getFile", msg) == 0) {
             // Commande pour récupérer la liste des fichiers disponibles
             getAvailableFiles(args.dSC);
+        }
+        else if (strncmp("/chooseFile ", msg, 12) == 0) {
+            char *filename = msg + 12;
+            sendFileContent(args.dSC, filename);
         }
         else {
             envoie(args.dSC, "Commande inconnu faite /help pour plus d'information");
@@ -451,12 +480,12 @@ int main(int argc, char *argv[]) {
 
     printf("Début programme\n");
 
-    signal(SIGINT, ArretForce); //Ajout du signal de fin ctrl+c
+     signal(SIGINT, ArretForce);
 
-    int dS = init_ouverture_connexion(atoi(argv[1])); //on crée le socket de communication
+     int dS = init_ouverture_connexion(atoi(argv[1]));
 
-    init_connexion(dS); //lancement de la connexion des clients
-    shutdown(dS,2); //fin du socket de communication
-    printf("fin programme");
-}
+     init_connexion(dS);
 
+     shutdown(dS, 2);
+     printf("Fin programme\n");
+ }

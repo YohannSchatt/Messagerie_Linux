@@ -1,15 +1,13 @@
-
-// BUT DU PROG : Ce programme, client.c, est un client TCP simple permettant d'échanger des messages avec un serveur distant
-
 #include <stdio.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
 #include <pthread.h>
 #include <signal.h>
+#include <arpa/inet.h>
+
+#define MAX_FILE 100
 
 pthread_t th_envoie; //création des 2 threads, celui qui va lire les messages reçu et celui qui envoie son message au serveur
 pthread_t th_recept;
@@ -55,7 +53,7 @@ void receiveFileList(int dS) {
 //Fonction de lecture des messages et affiche les messages reçu des autres clients
 //Entrée : le socket du serveur, le booléen qui gère l'exécution des deux threads
 //Sortie : renvoie rien, affiche le message
-bool lecture(int dS, bool* continu,char* pseudo){
+bool lecture(int dS, bool* continu, char* pseudo){
     bool res = true;
     int taille;
     int err = recv(dS,&taille, sizeof(int), 0); //reception de la taille du message
@@ -86,24 +84,32 @@ bool lecture(int dS, bool* continu,char* pseudo){
 //Fonction qui permet l'envoie des messages par l'utlisateur
 //Entrée : le socket du serveur, le message
 //Sortie : un booléen si il reçoit "fin" alors false, sinon true
-bool envoie(int dS, char** msg,bool* continu, char* pseudo){
+bool envoie(int dS, char** msg, bool* continu, char* pseudo) {
     bool res = true;
     pthread_mutex_lock(&M1);
-    if (*continu){
+    if (*continu) {
         pthread_mutex_unlock(&M1);
-        fgets(*msg,128,stdin);
-        printf("%s : ", pseudo); //affichage en dessous comme le message de join va permettre d'afficher avant
-        char *pos = strchr(*msg,'\n'); //cherche le '\n'
-        *pos = '\0'; // le change en '\0' pour la fin du message et la cohérence de l'affichage
-        if(strcmp(*msg,"/quitter") == 0 || strcmp(*msg,"/fermeture") == 0){
-            res = false;
+        fgets(*msg, 128, stdin);
+        printf("%s : ", pseudo);
+        char *pos = strchr(*msg, '\n');
+        if (pos != NULL) {
+            *pos = '\0';
         }
-        int taille = strlen(*msg)+1; //on récupère la taille du message (+1 pour le caractère de '\0')
-        if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == -1){ //envoie de la taille et le message
+
+        if (strcmp(*msg, "/quitter") == 0 || strcmp(*msg, "/fermeture") == 0) {
             res = false;
+        } else if (strcmp(*msg, "/getFile") == 0) {
+            requestFileList(dS);
+            receiveFileList(dS);
+        } else {
+            int taille = strlen(*msg) + 1;
+            if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == -1) {
+                res = false;
+            }
         }
         return res;
     }
+    pthread_mutex_unlock(&M1);
     return false;
 }
 
@@ -182,37 +188,34 @@ char* choixPseudo(int dS){
 //--------------------------------------main--------------------------------------------
 //Fonction principale du programme
 //pour lancer le programme il faut écrite : ./client "IP" "Port"
-int main(int argc, char* argv[]){
-
+int main(int argc, char* argv[]) {
     signal(SIGINT, ArretForce);
 
-    if (argc != 3) { //si le programme n'a pas 2 arguments
+    if (argc != 3) {
         printf("./client IP Port\n");
-    }
-    else{
+    } else {
         printf("Début programme\n");
-        int dS = socket(PF_INET, SOCK_STREAM, 0); //crée le socket
+        int dS = socket(PF_INET, SOCK_STREAM, 0);
         d = dS;
         printf("Socket Créé\n");
         struct sockaddr_in aS;
         aS.sin_family = AF_INET;
-        inet_pton(AF_INET,argv[1],&(aS.sin_addr)) ;
-        aS.sin_port = htons(atoi(argv[2])) ;
-        socklen_t lgA = sizeof(struct sockaddr_in) ;
-        if (connect(dS, (struct sockaddr *) &aS, lgA) == -1) { //se connecte au serveur
-            shutdown(dS,2);
+        inet_pton(AF_INET, argv[1], &(aS.sin_addr));
+        aS.sin_port = htons(atoi(argv[2]));
+        socklen_t lgA = sizeof(struct sockaddr_in);
+        if (connect(dS, (struct sockaddr*)&aS, lgA) == -1) {
+            shutdown(dS, 2);
             fprintf(stderr, "Erreur lors de la création de la connexion\n");
-            return EXIT_FAILURE; //fin du programme
-        }
-        else {
+            return EXIT_FAILURE;
+        } else {
             int accept;
-            printf("vous avez rejoint la file d'attente\n");
-            int err = recv(dS, &accept, sizeof(bool), 0);
-            if(err == -1 || err == 0){
+            printf("Vous avez rejoint la file d'attente\n");
+            int err = recv(dS, &accept, sizeof(int), 0);
+            if (err <= 0) {
                 ArretForce(0);
             }
             printf("Vous êtes connecté au serveur !\n");
-            bool* continu = (bool*)malloc(sizeof(bool)); //booléen utilisé dans les deux threads
+            bool* continu = (bool*)malloc(sizeof(bool));
             *continu = true;
 
             struct Args_Thread args_recept;
@@ -223,29 +226,27 @@ int main(int argc, char* argv[]){
             args_envoie.dS = dS;
             args_envoie.continu = continu;
 
-            // Les deux structures sont différents pour éviter des problèmes de concurrence même si ils prennent les même données
-            
-            args_recept.pseudo = choixPseudo(dS); //l'utilisateur donne son pseudo
+            args_recept.pseudo = choixPseudo(dS);
             args_envoie.pseudo = args_recept.pseudo;
 
-            if (pthread_create(&th_recept, NULL, reception, (void*)&args_recept) == -1) { //lance le thread de réception
-                shutdown(dS,2);
-                fprintf(stderr, "Erreur lors de la création du thread de reception\n");
-                return EXIT_FAILURE; //fin du programme
+            if (pthread_create(&th_recept, NULL, reception, (void*)&args_recept) != 0) {
+                shutdown(dS, 2);
+                fprintf(stderr, "Erreur lors de la création du thread de réception\n");
+                return EXIT_FAILURE;
             }
-            if (pthread_create(&th_envoie, NULL, propagation, (void*)&args_envoie) == -1) { //lance le thread propagation
-                shutdown(dS,2);
-                fprintf(stderr, "Erreur lors de la création du thread d'envoie\n");
-                return EXIT_FAILURE; //fin du programme
+            if (pthread_create(&th_envoie, NULL, propagation, (void*)&args_envoie) != 0) {
+                shutdown(dS, 2);
+                fprintf(stderr, "Erreur lors de la création du thread d'envoi\n");
+                return EXIT_FAILURE;
             }
-                
-            pthread_join(th_recept,NULL); //attend la fin du thread de réception
-        }
-        shutdown(dS,2);//met fin au socket
 
-        setbuf(stdout, NULL);
-        printf("\33[2K\r");
-        printf("fin du programme\n");
+            pthread_join(th_recept, NULL);
+            pthread_join(th_envoie, NULL);
+
+            shutdown(dS, 2);
+            printf("\33[2K\rfin du programme\n");
+        }
     }
     return 0;
 }
+
