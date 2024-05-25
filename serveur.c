@@ -12,6 +12,8 @@
 #include "file.c"
 
 #define NB_MAX_PERSONNE 3 //limite max de personne sur le serveur
+#define MAX_FILE 200 //limite max de personne sur le serveur
+
 int  NB_PERSONNE_ACTUELLE = 0;//compteur du nombre de personne connecté
 int PORT;
  
@@ -403,31 +405,97 @@ int initSocketFile(int port){
     }
 }
 
+char* Interface_choix_fichier_getFile(int dSFC) {
+    int file_count;
+    char** filenames = getFileInFolder("./file_serveur", &file_count);
+    char* msg = (char*)malloc(sizeof(char)*16);
+    int err = send(dSFC,&file_count,sizeof(int),0);
+    if (err <= 0){
+        printf("Erreur connexion fichier !");
+        finFichier(dSFC);
+    }
+    int taille;
+    for(int i = 0; i<file_count;i++){
+        taille = strlen(filenames[i])+1;
+        err = send(dSFC,&taille,sizeof(int),0);
+        if (err <= 0){
+            printf("Erreur envoie taille nom fichier !\n");
+            finFichier(dSFC);
+        }
+        err = send(dSFC,filenames[i],sizeof(char)*taille,0);
+        if (err <= 0){
+            printf("Erreur envoie nom fichier !\n");
+            finFichier(dSFC);
+        }
+    }
+    int choix;
+    err = recv(dSFC,&choix,sizeof(int),0);
+    if (err <= 0){
+        printf("Erreur reception choix !\n");
+        finFichier(dSFC);
+    }
+    if (choix < file_count && choix >= 0){
+        char* nameFile = strdup(filenames[choix]);
+        for (int j = 0; j < file_count; j++) {
+            free(filenames[j]);
+        }
+        return nameFile;
+    }
+    else {
+        printf("Choix invalide.\n");
+        for (int j = 0; j < file_count; j++) {
+            free(filenames[j]);
+        }
+        return NULL;
+    }
+}
+
+void* getFile(void* args){
+    int dSFC = *((int*)args);
+    recvFichier(dSFC,"./file_serveur/");
+}
+
+void* sendFile(void* args){
+    int dSFC = *((int*)args);
+    char* nameFile = Interface_choix_fichier_getFile(dSFC);
+    if (nameFile == NULL){
+        finFichier(dSFC);
+    }
+    sendFichier(nameFile,"./file_serveur/",dSFC);
+}
+
 void* thread_file(void * args){
 
-    int dSF = (*(int*)args);
+    int dSF = *((int*)args);
 
     struct sockaddr_in aC ; //structure du socket
     socklen_t lg = sizeof(struct sockaddr_in);
 
     while(2==2){
         int dSFC = accept(dSF, (struct sockaddr*) &aC,&lg); //crée le socket client
-        printf("%d\n",dSFC);
         if (dSFC == -1) { //gestion de l'erreur de accept
             printf("problème de connexion\n");
         }
         int a = 1;
-        printf("je suis au send\n");
-        int err = send(dSFC,&a, sizeof(int), 0);
-        printf("j'ai passé le send\n");
-        if (err == 0 || err == -1){
+        int err = send(dSFC,&a, sizeof(int), 0); //accusé de connexion
+        if (err <= 0){
             printf("Erreur connexion fichier !");
             finFichier(dSFC);
         }
-        recvFichier(dSFC,"./file_serveur/");
+        err = recv(dSFC,&a, sizeof(int),0); //0 pour sendFile, 1 pour getFile
+        if (err <= 0){
+            printf("Erreur connexion fichier !");
+            finFichier(dSFC);
+        }
+        pthread_t thread_file_client;
+        if (a == 0){ //pour sendFile
+            pthread_create(&thread_file_client, NULL, getFile,(void*)(&dSFC));
+        }
+        else { //pour getFile
+            pthread_create(&thread_file_client, NULL, sendFile,(void*)(&dSFC));
+        };
     }
 }
-
 
 
 //initialise la communication entre le client et le serveur

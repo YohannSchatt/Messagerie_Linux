@@ -30,6 +30,11 @@ struct Args_Thread { //structure permettant de transférer les arguments dans le
     char* pseudo;
 };
 
+struct args_fichier {
+    int dSF;
+    int a; //0 pour sendFile, 1 pour getFile
+};
+
 //Fonction qui prend un paramètre un signal et qui stop le programme proprement
 void ArretForce(int n) {
     printf("\33[2K\r");
@@ -105,24 +110,12 @@ char* getNameFile(char* path){
 
 
 
-char* Interface_choix_fichier() {
-    struct dirent *entry;
-    DIR *dp;
-    char *filenames[MAX_FILE];
-    dp = opendir("./file_client");
-    if (dp == NULL) {
-        perror("opendir");
-    }
-    else {
-        int i = 0;
-        while ((entry = readdir(dp))) {
-            if (entry->d_name[0] != '.' && i < MAX_FILE) {
-            filenames[i] = strdup(entry->d_name);
-            printf("%d : %s\n", i,filenames[i]);
-            i++;
-            }
+char* Interface_choix_fichier_sendFile() {
+        int file_count;
+        char** filenames = getFileInFolder("./file_client",&file_count);
+        for(int i = 0; i<file_count;i++){
+            printf("%d : %s\n",i,filenames[i]);
         }
-        int file_count = i;
         char* msg = (char*)malloc(sizeof(char)*16);
         printf("\33[2K\r");
         printf("écrivez un entier : ");
@@ -139,15 +132,55 @@ char* Interface_choix_fichier() {
             for (int j = 0; j < file_count; j++) {
                 free(filenames[j]);
             }
-            closedir(dp);
             return NULL;
         }
     }
+
+void Interface_choix_fichier_getFile(int dSF) {
+    int file_count;
+    int err = recv(dSF,&file_count,sizeof(int),0);
+    if (err <= 0){
+        printf("Erreur reception nombre de fichier !");
+        finFichier(dSF);
+    }
+    int taille_msg;
+    for(int i = 0; i < file_count; i++){
+        err = recv(dSF,&taille_msg,sizeof(int),0);
+        if (err <= 0){
+            printf("Erreur reception taille nom fichier !");
+            finFichier(dSF);
+        }
+        char* msg = (char*)malloc(sizeof(char)*taille_msg);
+        err = recv(dSF,msg,sizeof(char)*taille_msg,0);        
+        if (err <= 0){
+            printf("Erreur connexion fichier !");
+            finFichier(dSF);
+        }
+        printf("%d : %s\n",i, msg);
+        free(msg);
+    }
+    char* choix = (char*)malloc(sizeof(char)*16);
+    printf("\33[2K\r");
+    printf("écrivez un entier : ");
+    fgets(choix,16,stdin);
+    int res = atoi(choix);
+    free(choix);
+    if (res >= 0 && res < file_count){
+        err = send(dSF,&res,sizeof(int),0);
+        if (err <= 0){
+            printf("Erreur connexion fichier !");
+            finFichier(dSF);
+        }
+    }
+    else{
+        printf("Choix invalide.\n");
+        finFichier(dSF);
+    }
 }
 
-void* thread_fichier(void* args_thread) {
-    char* nameFile = Interface_choix_fichier();
-    char* path = (char*)args_thread;
+void* thread_fichier(void* args) {
+
+    int choix = *((int*)args);
     int dSF = socket(PF_INET, SOCK_STREAM, 0); //crée le socket
     printf("%d\n",dSF);
     struct sockaddr_in aS;
@@ -160,16 +193,22 @@ void* thread_fichier(void* args_thread) {
         fprintf(stderr, "Erreur lors de la création de la connexion\n");
         pthread_exit(0); //fin du programme
     }
-    int a;
-    printf("je suis au recv\n");
-    int err = recv(dSF,&a, sizeof(int), 0);
-    printf("j'ai passé le recv\n");
+    int b;
+    int err = recv(dSF,&b, sizeof(int), 0); //Accusé de réception pour qu'on envoie pas les messages avant que le serveur soit connecté
     if (err == 0 || err == -1){
         shutdown(dSF,2);
         fprintf(stderr, "Erreur lors de la création de la connexion\n");
         pthread_exit(0);
     }
-    sendFichier(nameFile,"./file_client/",dSF); 
+    err = send(dSF,&choix,sizeof(int),0);
+    if (choix == 0){ //0 pour sendFile, 1 pour getFile
+        char* nameFile = Interface_choix_fichier_sendFile();
+        sendFichier(nameFile,"./file_client/",dSF);
+    }
+    else {
+        Interface_choix_fichier_getFile(dSF);
+        recvFichier(dSF,"./file_client/");
+    } 
 }
 
 //Fonction de lecture des messages et affiche les messages reçu des autres clients
@@ -217,17 +256,26 @@ bool envoie(int dS, char** msg,bool* continu, char* pseudo){
         if(strcmp(*msg,"/quitter") == 0 || strcmp(*msg,"/fermeture") == 0){
             res = false;
         }
+        if(strcmp(getCommande(*msg),"/sendFile") == 0){
+            pthread_t th_file;
+            printf("\33[2K\r");
+            int a = 0;
+            if (pthread_create(&th_file, NULL, thread_fichier, (void*)(&a)) == -1) { //lance le thread propagation
+                fprintf(stderr, "Erreur lors de la création du thread d'envoie\n");
+            }
+        }
+        if(strcmp(getCommande(*msg),"/getFile") == 0){
+            pthread_t th_file;
+            printf("\33[2K\r");
+            int a = 1;
+            if (pthread_create(&th_file, NULL, thread_fichier, (void*)(&a)) == -1) { //lance le thread propagation
+                fprintf(stderr, "Erreur lors de la création du thread d'envoie\n");
+            }
+        }
         if (*msg[0] != '\0'){
             int taille = strlen(*msg)+1; //on récupère la taille du message (+1 pour le caractère de '\0')
             if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == -1){ //envoie de la taille et le message
                 res = false;
-            }
-        }
-        if(strcmp(getCommande(*msg),"/sendFile") == 0){
-            pthread_t th_file;
-            printf("\33[2K\r");
-            if (pthread_create(&th_file, NULL, thread_fichier, NULL) == -1) { //lance le thread propagation
-                fprintf(stderr, "Erreur lors de la création du thread d'envoie\n");
             }
         }
         printf("%s : ", pseudo); //affichage en dessous comme le message de join va permettre d'afficher avant

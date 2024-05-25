@@ -9,11 +9,34 @@
 #include <dirent.h>
 
 #define TAILLE_BUF 256 //taille du buffer pour l'envoie du fichier
+#define MAX_FILE 200 //limite max de personne sur le serveur
 
 void finFichier(int dSF){
     shutdown(dSF,2);
     printf("fin fichier\n");
     pthread_exit(0);
+}
+
+char** getFileInFolder(char* file, int* file_count){
+    struct dirent *entry;
+    DIR *dp;
+    char** filenames = malloc(sizeof(char*)*MAX_FILE);
+    dp = opendir(file);
+    if (dp == NULL) {
+        perror("opendir");
+    }
+    else {
+        int i = 0;
+        while ((entry = readdir(dp))) {
+            if (entry->d_name[0] != '.' && i < MAX_FILE) {
+            filenames[i] = strdup(entry->d_name);
+            i++;
+            }
+        }
+        *file_count = i;
+        closedir(dp);
+        return filenames;
+    }
 }
 
 char* getPath(char* file,char* name){
