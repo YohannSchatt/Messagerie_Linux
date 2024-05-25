@@ -23,6 +23,8 @@ int d = -1; //variable qui stocke dS (quand il est défini) pour l'arrêt forcé
 int PORT;
 char* IP;
 
+bool continuToSend = true; //variable qui bloque l'envoie des messages aux autres clients
+
 
 struct Args_Thread { //structure permettant de transférer les arguments dans les différents threads
     int dS; //le socket du serveur
@@ -141,6 +143,7 @@ void Interface_choix_fichier_getFile(int dSF) {
     int err = recv(dSF,&file_count,sizeof(int),0);
     if (err <= 0){
         printf("Erreur reception nombre de fichier !");
+        continuToSend = true;
         finFichier(dSF);
     }
     int taille_msg;
@@ -148,12 +151,14 @@ void Interface_choix_fichier_getFile(int dSF) {
         err = recv(dSF,&taille_msg,sizeof(int),0);
         if (err <= 0){
             printf("Erreur reception taille nom fichier !");
+            continuToSend = true;
             finFichier(dSF);
         }
         char* msg = (char*)malloc(sizeof(char)*taille_msg);
         err = recv(dSF,msg,sizeof(char)*taille_msg,0);        
         if (err <= 0){
             printf("Erreur connexion fichier !");
+            continuToSend = true;
             finFichier(dSF);
         }
         printf("%d : %s\n",i, msg);
@@ -169,11 +174,13 @@ void Interface_choix_fichier_getFile(int dSF) {
         err = send(dSF,&res,sizeof(int),0);
         if (err <= 0){
             printf("Erreur connexion fichier !");
+            continuToSend = true;
             finFichier(dSF);
         }
     }
     else{
         printf("Choix invalide.\n");
+        continuToSend = true;
         finFichier(dSF);
     }
 }
@@ -190,6 +197,7 @@ void* thread_fichier(void* args) {
     socklen_t lgA = sizeof(struct sockaddr_in) ;
     if (connect(dSF, (struct sockaddr *) &aS, lgA) == -1) { //se connecte au serveur
         shutdown(dSF,2);
+        continuToSend = true;
         fprintf(stderr, "Erreur lors de la création de la connexion\n");
         pthread_exit(0); //fin du programme
     }
@@ -197,16 +205,19 @@ void* thread_fichier(void* args) {
     int err = recv(dSF,&b, sizeof(int), 0); //Accusé de réception pour qu'on envoie pas les messages avant que le serveur soit connecté
     if (err == 0 || err == -1){
         shutdown(dSF,2);
+        continuToSend = true;
         fprintf(stderr, "Erreur lors de la création de la connexion\n");
         pthread_exit(0);
     }
     err = send(dSF,&choix,sizeof(int),0);
     if (choix == 0){ //0 pour sendFile, 1 pour getFile
         char* nameFile = Interface_choix_fichier_sendFile();
+        continuToSend = true;
         sendFichier(nameFile,"./file_client/",dSF);
     }
     else {
         Interface_choix_fichier_getFile(dSF);
+        continuToSend = true;
         recvFichier(dSF,"./file_client/");
     } 
 }
@@ -260,17 +271,21 @@ bool envoie(int dS, char** msg,bool* continu, char* pseudo){
             pthread_t th_file;
             printf("\33[2K\r");
             int a = 0;
+            continuToSend = false;
             if (pthread_create(&th_file, NULL, thread_fichier, (void*)(&a)) == -1) { //lance le thread propagation
                 fprintf(stderr, "Erreur lors de la création du thread d'envoie\n");
             }
+            *msg[0] = '\0';
         }
         if(strcmp(getCommande(*msg),"/getFile") == 0){
             pthread_t th_file;
             printf("\33[2K\r");
             int a = 1;
+            continuToSend = false;
             if (pthread_create(&th_file, NULL, thread_fichier, (void*)(&a)) == -1) { //lance le thread propagation
                 fprintf(stderr, "Erreur lors de la création du thread d'envoie\n");
             }
+            *msg[0] = '\0';
         }
         if (*msg[0] != '\0'){
             int taille = strlen(*msg)+1; //on récupère la taille du message (+1 pour le caractère de '\0')
@@ -314,7 +329,9 @@ void* propagation(void* args_thread){
         //pthread_mutex_lock(&M1); //bloque l'accès au booléen (car peut être écrit pendant sa lecture)
         continu = *(args.continu); //met à jour le booléen si modifié par la fonction propagation
         //pthread_mutex_unlock(&M1);  //redonne l'accès au booléen
-        continu = envoie(args.dS,&msg,args.continu,args.pseudo);
+        if(continuToSend){
+            continu = envoie(args.dS,&msg,args.continu,args.pseudo);
+        }
     }
     //pthread_mutex_lock(&M1); //si fin de la communication alors on change le booléen donc on ferme l'accès au booléen le temps de l'affectation de false
     *args.continu = false; 
