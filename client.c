@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <dirent.h>
+#include "file.c"
 
 #define MAX_FILE 200 //limite max de personne sur le serveur
 
@@ -37,12 +38,6 @@ void ArretForce(int n) {
         shutdown(d,2);
     }
     exit(0);
-}
-
-void finFichier(int dSF){
-    shutdown(dSF,2);
-    printf("fin fichier\n");
-    pthread_exit(0);
 }
 
 int foundSpace(char* commande){
@@ -87,15 +82,6 @@ char* getCommande(char* commande){
     return res;
 }
 
-char* getPath(char* commande){
-    int pos = foundSpace(commande);
-    char* path = (char*)malloc(sizeof(char)*(strlen(commande)-pos+1));
-    for(int i=0;i+pos<strlen(commande);i++){
-        path[i] = commande[pos+i];
-    }
-    return path;
-}
-
 int findLastSlash(char* path){
     int i = strlen(path)-1;
     bool found = false;
@@ -117,57 +103,13 @@ char* getNameFile(char* path){
     return name;
 }
 
-void* lecture_fichier(char* nameFile,int dSF){
-    FILE* fic;
-    char* file = "file/";
-    char* path = (char*)malloc(sizeof(char)*(8+strlen(nameFile)));
-    path[0] = '\0'; //pour éviter de modifier des parties de mémoire ou on a pas accès
-    strcat(path,file);
-    strcat(path,nameFile);
-    printf("%s\n",path);
-    fic = fopen(path,"rb");
-    short int Taille_buf = 256;
-    short int buffer[Taille_buf];
-    short int i, nb_val_lues = Taille_buf;
-    int err;
-    if(fic==NULL) {
-        printf("ouverture du fichier impossible !");
-        finFichier(dSF);
-    }
-    int taille_nameFile = strlen(nameFile)+1;
-    err = send(dSF,&taille_nameFile,sizeof(int), 0);
-    if (err == 0 | err == -1){
-        printf("erreur d'envoie de la taille du fichier");
-        finFichier(dSF);
-    }
-    err = send(dSF,nameFile,sizeof(char)*(taille_nameFile), 0);
-    if (err == 0 | err == -1){
-        printf("erreur envoie du nom du fichier");
-        finFichier(dSF);
-    }
-    while ( nb_val_lues == Taille_buf ){
-        printf("je lis le fichier");
-        nb_val_lues = fread(buffer, sizeof(short int), Taille_buf, fic);
-        err = send (dSF,&nb_val_lues,sizeof(short int), 0);
-        if (err == 0 | err == -1){
-            printf("erreur pendant l'envoie des valeurs lu du fichier");
-            finFichier(dSF);
-        }
-        printf("j'envoie le fichier");
-        err = send(dSF,buffer,sizeof(short int),0);
-        if (err == 0 | err == -1){
-            printf("erreur pendant l'envoie du fichier");
-            finFichier(dSF);
-        }
-    }
-    finFichier(dSF);
-}
+
 
 char* Interface_choix_fichier() {
     struct dirent *entry;
     DIR *dp;
     char *filenames[MAX_FILE];
-    dp = opendir("./file");
+    dp = opendir("./file_client");
     if (dp == NULL) {
         perror("opendir");
     }
@@ -207,6 +149,7 @@ void* thread_fichier(void* args_thread) {
     char* nameFile = Interface_choix_fichier();
     char* path = (char*)args_thread;
     int dSF = socket(PF_INET, SOCK_STREAM, 0); //crée le socket
+    printf("%d\n",dSF);
     struct sockaddr_in aS;
     aS.sin_family = AF_INET;
     inet_pton(AF_INET,IP,&(aS.sin_addr)); 
@@ -217,9 +160,16 @@ void* thread_fichier(void* args_thread) {
         fprintf(stderr, "Erreur lors de la création de la connexion\n");
         pthread_exit(0); //fin du programme
     }
-    printf("coucou\n");
-    lecture_fichier(nameFile,dSF);
-    pthread_exit(0);   
+    int a;
+    printf("je suis au recv\n");
+    int err = recv(dSF,&a, sizeof(int), 0);
+    printf("j'ai passé le recv\n");
+    if (err == 0 || err == -1){
+        shutdown(dSF,2);
+        fprintf(stderr, "Erreur lors de la création de la connexion\n");
+        pthread_exit(0);
+    }
+    sendFichier(nameFile,"./file_client/",dSF); 
 }
 
 //Fonction de lecture des messages et affiche les messages reçu des autres clients
@@ -280,7 +230,6 @@ bool envoie(int dS, char** msg,bool* continu, char* pseudo){
                 fprintf(stderr, "Erreur lors de la création du thread d'envoie\n");
             }
         }
-        sleep(20); 
         printf("%s : ", pseudo); //affichage en dessous comme le message de join va permettre d'afficher avant
         return res;
     }
@@ -374,6 +323,7 @@ int main(int argc, char* argv[]){
     else{
         printf("Début programme\n");
         int dS = socket(PF_INET, SOCK_STREAM, 0); //crée le socket
+        printf("%d\n",dS);
         d = dS;
         printf("Socket Créé\n");
         struct sockaddr_in aS;

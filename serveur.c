@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <semaphore.h>
+#include "file.c"
 
 #define NB_MAX_PERSONNE 3 //limite max de personne sur le serveur
 int  NB_PERSONNE_ACTUELLE = 0;//compteur du nombre de personne connecté
@@ -131,19 +132,6 @@ void envoie_prive_client(char* msg,char* pseudo,struct mem_Thread args){
     pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
 }
 
-//Fonction qui envoie le message donné en paramètre 
-//Entrée : un tableau de dSC qui envoie stocke les sockets des clients qui doivent recevoir le message
-//Sortie : renvoie rien, le message est envoyé au personne dont le socket correspond 
-// void envoie_prive(int* dSC, char* msg){
-//     for(int i = 0;i<NB_MAX_PERSONNE;i++){
-//         pthread_mutex_lock(&M1); //on bloque l'accès au tableau
-//         if (tabdSC[i].dSC != -1 && args.dSC != tabdSC[i].dSC) { //si le socket existe et est différent de celui de notre client alors on envoie le message
-//             envoie(tabdSC[i].dSC, msg);
-//         }
-//         pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
-//     }
-// }
-
 //Fonction qui permet de récupérer le pseudo dans une commande
 //Entrée : l'adresse du msg de la commande, la position de l'espace juste devant le pseudo
 //Sortie : le pseudo de l'utilisateur 
@@ -243,55 +231,6 @@ void envoyer_manuel(int dSC) {
     }
 }
 
-void recvFichier(int dSFC){
-    FILE* fic;
-    int taille_name;
-    char* name;
-    printf("reception fichier\n");
-    int err = recv(dSFC,&taille,sizeof(int),0);
-    if (err == 0 || err == -1) {
-        shutdown(dSFC,2);
-        fprintf(stderr,"problème de reception de la taille d'un fichier\n");
-        pthread_exit(0); 
-    }
-    err = recv(dSFC,name,sizeof(char)*(taille),0);
-    if (err == 0 || err == -1) {
-        shutdown(dSFC,2);
-        fprintf(stderr,"problème de reception de la taille d'un fichier\n");
-        pthread_exit(0); 
-    }
-    fic = fopen(name,"wb");
-    short int taille_fic_recu;
-    short int* buffer;
-    while( taille_fic_recu < taille ) {
-        err = recv(dSFC,&taille_fic_recu,sizeof(short int)*(taille+1),0);
-        if (err == 0 || err == -1){
-            shutdown(dSFC,2);
-            fprintf(stderr,"problème de reception de la taille d'un fichier\n");
-            pthread_exit(0); 
-        }
-        err = recv(dSFC,buffer,sizeof(short int)*(taille_fic_recu),0);
-        if (err == 0 || err == -1) {
-            shutdown(dSFC,2);
-            fprintf(stderr,"problème de reception de la taille d'un fichier\n");
-            pthread_exit(0); 
-        }
-        fwrite(buffer, sizeof(short int),1,fic);
-    }
-    pthread_exit(0);
-}
-
-void* thread_file(void * args_thread){
-    int dSF = initSocketFile(PORT+1);
-    struct sockaddr_in aC ; //structure du socket
-    socklen_t lg = sizeof(struct sockaddr_in) ; 
-    int dSFC = accept(dSF, (struct sockaddr*) &aC,&lg); //crée le socket client
-        if (dSFC == -1) { //gestion de l'erreur de accept
-            printf("problème de connexion\n");
-        }
-    recvFichier(dSFC);
-}
-
 bool protocol(char *msg, struct mem_Thread args){
     bool res = true;
     if (msg[0] == '@'){
@@ -309,10 +248,6 @@ bool protocol(char *msg, struct mem_Thread args){
         }
         else if (strcmp("/fermeture",msg) == 0){
             ArretForce(0);
-        }
-        else if (strcmp("/sendFile",msg) == 0){
-            pthread_t th_file;
-            pthread_create(&th_file, NULL,thread_file,NULL);
         }
         else {
             envoie(args.dSC, "Commande inconnu faite /help pour plus d'information");
@@ -437,8 +372,8 @@ void* choixPseudo(void* args_thread){
 }
 
 int initSocketFile(int port){
-    int dSFC = socket(PF_INET, SOCK_STREAM, 0); //crée le socket en TCP
-    if (dSFC == -1){
+    int dSF = socket(PF_INET, SOCK_STREAM, 0); //crée le socket en TCP
+    if (dSF == -1){
         fprintf(stderr,"erreur lors de la création du socket");
         pthread_exit(0);
     }
@@ -448,28 +383,49 @@ int initSocketFile(int port){
         ad.sin_family = AF_INET;
         ad.sin_addr.s_addr = INADDR_ANY ;
         ad.sin_port = htons(port) ;
-        if (bind(dSFC, (struct sockaddr*)&ad, sizeof(ad)) == -1) { //Donne un nom au socket
-            shutdown(dSFC,2);
+        if (bind(dSF, (struct sockaddr*)&ad, sizeof(ad)) == -1) { //Donne un nom au socket
+            shutdown(dSF,2);
             fprintf(stderr,"problème de nommage du socket\n");
             pthread_exit(0);
         }
         else {
             printf("Socket Nommé\n");
-            if(listen(dSFC, 7) == -1){  //mets en position d'écoute
-                shutdown(dSFC,2);
+            if(listen(dSF, 7) == -1){  //mets en position d'écoute
+                shutdown(dSF,2);
                 fprintf(stderr,"problème à initialiser l'écoute\n");
                 pthread_exit(0);
             }
             else {
                 printf("Mode écoute\n");
-                return dSFC;
+                return dSF;
             }
         }
     }
 }
 
-void thread_accept(dSCF){
+void* thread_file(void * args){
 
+    int dSF = (*(int*)args);
+
+    struct sockaddr_in aC ; //structure du socket
+    socklen_t lg = sizeof(struct sockaddr_in);
+
+    while(2==2){
+        int dSFC = accept(dSF, (struct sockaddr*) &aC,&lg); //crée le socket client
+        printf("%d\n",dSFC);
+        if (dSFC == -1) { //gestion de l'erreur de accept
+            printf("problème de connexion\n");
+        }
+        int a = 1;
+        printf("je suis au send\n");
+        int err = send(dSFC,&a, sizeof(int), 0);
+        printf("j'ai passé le send\n");
+        if (err == 0 || err == -1){
+            printf("Erreur connexion fichier !");
+            finFichier(dSFC);
+        }
+        recvFichier(dSFC,"./file_serveur/");
+    }
 }
 
 
@@ -477,7 +433,9 @@ void thread_accept(dSCF){
 //initialise la communication entre le client et le serveur
 //Entrée : le socket d'écoute
 //Sortie : renvoie rien, lance la fonction du pseudo avec le socket créé si la communication peut s'opérer
-void init_connexion(int dS) {
+void* init_connexion(void* args) {
+
+    int dS = (*(int*)args);
 
     for(int i = 0; i<NB_MAX_PERSONNE;i++) { //initialise le tableau
         tabdSC[i].dSC = -1;
@@ -491,6 +449,7 @@ void init_connexion(int dS) {
     while(true){ //continue a s'éxecuter 
         sem_wait(&semaphore);
         int dSC = accept(dS, (struct sockaddr*) &aC,&lg); //crée le socket client
+        printf("%d\n",dSC);
         if (dSC == -1) { //gestion de l'erreur de accept
             printf("problème de connexion\n");
         }
@@ -529,11 +488,19 @@ int main(int argc, char *argv[]) {
 
     signal(SIGINT, ArretForce); //Ajout du signal de fin ctrl+c
 
-    int dS = init_ouverture_connexion(atoi(argv[1])); //on crée le socket de communication 
-    int dSF = initSocketFile(atoi(argv[1])+1);
     PORT = atoi(argv[1]);
-    init_connexion(dS); //lancement de la connexion des clients
+
+    int dS = init_ouverture_connexion(PORT); //on crée le socket de communication 
+    int dSF = initSocketFile(PORT+1);
     
+    pthread_t th_communication;
+    pthread_t th_file;
+
+    pthread_create(&th_communication,NULL,init_connexion,(void*)(&dS));
+    pthread_create(&th_file,NULL,thread_file,(void*)(&dSF));
+
+    pthread_join(th_communication,NULL);
+
     shutdown(dS,2); //fin du socket de communication
     printf("fin programme");
 }
