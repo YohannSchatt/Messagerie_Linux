@@ -47,71 +47,8 @@ void ArretForce(int n) {
     exit(0);
 }
 
-int foundSpace(char* commande){
-    int i = 0;
-    bool found = false;
-    while (i<strlen(commande) && !found) {
-        if (commande[i] == ' ' || commande[i] == '\0'){
-            found = true;
-        }
-        i++;
-    }
-    return i;
-}
-
-long foundTaille(char* path){
-    FILE *fichier;
-    long taille;
-    fichier = fopen("nom_du_fichier", "rb");
-    if (fichier == NULL) {
-        printf("Impossible d'ouvrir le fichier.\n");
-        return 0;
-    }
-    fseek(fichier, 0, SEEK_END);
-    taille = ftell(fichier);
-    fclose(fichier);
-    printf("La taille du fichier est : %ld octets\n", taille);
-    return taille;
-}
-
-char* getCommande(char* commande){
-    int pos = foundSpace(commande);
-    char* res = (char*)malloc(sizeof(char)*pos+1);
-    bool stop = false;
-    int i = 0;
-    while(i<strlen(commande) && !stop){
-        if (commande[i] == ' '){
-            stop = true;
-        }
-        res[i] = commande[i];
-        i++;
-    }
-    return res;
-}
-
-int findLastSlash(char* path){
-    int i = strlen(path)-1;
-    bool found = false;
-    while (i<0 && !found) {
-        if (path[i] == '/'){
-            found = true;
-        }
-        i++;
-    }
-    return i;
-}
-
-char* getNameFile(char* path){
-    int pos = findLastSlash(path);
-    char* name = (char*)malloc(sizeof(char)*(strlen(path)-pos+1));
-    for(int i = 0;pos+i<strlen(path);i++){
-        name[i] = path[pos+i];
-    }
-    return name;
-}
-
-
-
+//permet de choisir le fichier dans son dossier afin de lancer le transfert 
+//renvoie le nom du fichier transféré
 char* Interface_choix_fichier_sendFile() {
         int file_count;
         char** filenames = getFileInFolder("./file_client",&file_count);
@@ -138,6 +75,7 @@ char* Interface_choix_fichier_sendFile() {
         }
     }
 
+//Permet de choisir le fichier dans le serveur afin de lancer le transfert
 void Interface_choix_fichier_getFile(int dSF) {
     int file_count;
     int err = recv(dSF,&file_count,sizeof(int),0);
@@ -185,6 +123,8 @@ void Interface_choix_fichier_getFile(int dSF) {
     }
 }
 
+//thread qui permet d'éxecuter la commande soit sendFile, soit getFile
+//il crée un socket et se connecte au client 
 void* thread_fichier(void* args) {
 
     int choix = *((int*)args);
@@ -267,7 +207,7 @@ bool envoie(int dS, char** msg,bool* continu, char* pseudo){
         if(strcmp(*msg,"/quitter") == 0 || strcmp(*msg,"/fermeture") == 0){
             res = false;
         }
-        if(strcmp(getCommande(*msg),"/sendFile") == 0){
+        if(strcmp(*msg,"/sendFile") == 0){
             pthread_t th_file;
             printf("\33[2K\r");
             int a = 0;
@@ -277,7 +217,7 @@ bool envoie(int dS, char** msg,bool* continu, char* pseudo){
             }
             *msg[0] = '\0';
         }
-        if(strcmp(getCommande(*msg),"/getFile") == 0){
+        if(strcmp(*msg,"/getFile") == 0){
             pthread_t th_file;
             printf("\33[2K\r");
             int a = 1;

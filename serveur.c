@@ -20,7 +20,7 @@ int PORT;
 pthread_mutex_t M1 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au tableau des sockets clients
 pthread_mutex_t M2 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au nombre  des sockets clients
 
-sem_t semaphore;
+sem_t semaphore; //semaphore qui sert a la file d'attente
 
 struct mem_Thread { //structure permettant de transférer les arguments dans les différents threads
     int id; //l'id pour retrouver les éléments dans les tableaux
@@ -117,6 +117,7 @@ void envoie_everyone_serveur(char* msg){
     pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
 }
 
+//fonction qui permet d'envoyer un message privé a un autre client
 void envoie_prive_client(char* msg,char* pseudo,struct mem_Thread args){
     int i = 0;
     bool envoye = false;
@@ -204,6 +205,7 @@ char* creation_msg_client_prive(char* msg, char* pseudo) {
     return creation_msg_serveur(msg,pseudo," (Message privé) : ");
 }
 
+//fonction qui arrête le programme et coupe tout les sockets
 void ArretForce(int n) {
     printf("\33[2K\r");
     printf("Coupure du programme\n");
@@ -233,6 +235,7 @@ void envoyer_manuel(int dSC) {
     }
 }
 
+//cette fonction permet en fonction du message reçu d'éxecuter une action particulière
 bool protocol(char *msg, struct mem_Thread args){
     bool res = true;
     if (msg[0] == '@'){
@@ -320,6 +323,7 @@ int init_ouverture_connexion(int port) {
     }
 }
 
+//fonction qui vérifie si le pseudo n'est pas utilisé
 bool verif_pseudo(char* pseudo){
     bool res = true;
     int i = 0;
@@ -332,6 +336,7 @@ bool verif_pseudo(char* pseudo){
     return res;
 }
 
+//fonction qui permet a l'utilisateur de prendre un pseudo valide
 void* choixPseudo(void* args_thread){
     struct Args_Thread th = *((struct Args_Thread*)args_thread); //le socket client
 
@@ -373,6 +378,7 @@ void* choixPseudo(void* args_thread){
     pthread_exit(0);
 }
 
+//Crée un socket qui sera sur un port donnée en paramètre afin de recevoir des clients
 int initSocketFile(int port){
     int dSF = socket(PF_INET, SOCK_STREAM, 0); //crée le socket en TCP
     if (dSF == -1){
@@ -405,6 +411,7 @@ int initSocketFile(int port){
     }
 }
 
+//permet d'envoyer tout les fichiers au client afin qu'ils choisissent et reçoit la réponse du client
 char* Interface_choix_fichier_getFile(int dSFC) {
     int file_count;
     char** filenames = getFileInFolder("./file_serveur", &file_count);
@@ -450,11 +457,13 @@ char* Interface_choix_fichier_getFile(int dSFC) {
     }
 }
 
+//lance la reception de fichier du serveur
 void* getFile(void* args){
     int dSFC = *((int*)args);
     recvFichier(dSFC,"./file_serveur/");
 }
 
+//lance l'envoie du fichier au client
 void* sendFile(void* args){
     int dSFC = *((int*)args);
     char* nameFile = Interface_choix_fichier_getFile(dSFC);
@@ -464,6 +473,7 @@ void* sendFile(void* args){
     sendFichier(nameFile,"./file_serveur/",dSFC);
 }
 
+//fonction qui a pour but d'éxecuter le thread de sendFile ou de getFile
 void* thread_file(void * args){
 
     int dSF = *((int*)args);

@@ -11,11 +11,13 @@
 #define TAILLE_BUF 256 //taille du buffer pour l'envoie du fichier
 #define MAX_FILE 200 //limite max de personne sur le serveur
 
+//Fonction qui met fin a la communication et au thread qui a utilisé cette fonction
 void finFichier(int dSF){
     shutdown(dSF,2);
     pthread_exit(0);
 }
 
+//Permet d'obtenir tout les noms de fichier dans un directory
 char** getFileInFolder(char* file, int* file_count){
     struct dirent *entry;
     DIR *dp;
@@ -38,6 +40,7 @@ char** getFileInFolder(char* file, int* file_count){
     }
 }
 
+//Permet de créer le chemin pour que le programme sait ou trouver le fichier a envoyer
 char* getPath(char* file,char* name){
     char* path = (char*)malloc(sizeof(char)*(strlen(file)+strlen(name)+1));
     path[0] = '\0'; //pour éviter de modifier des parties de mémoire ou on a pas accès
@@ -47,6 +50,7 @@ char* getPath(char* file,char* name){
     return path;
 }
 
+//Fonction qui reçoit et crée le fichier dans le file passé en paramètre 
 void recvFichier(int dSF,char* file){
     printf("%d\n",dSF);
     int taille_name;
@@ -90,6 +94,7 @@ void recvFichier(int dSF,char* file){
     pthread_exit(0);
 }
 
+//Fonction qui envoie le fichier correspondant au nom et au directory donné en paramètre
 void* sendFichier(char* nameFile,char* file,int dSF){
     printf("%d\n",dSF);
     FILE* fic;
