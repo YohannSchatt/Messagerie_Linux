@@ -11,11 +11,11 @@
 #include <semaphore.h>
 #include "file.c"
 #include "annexe_serveur.c"
-#include "communication_client.c"
+#include "communication_serveur.c"
+#include "serveur.h"
 
-#define NB_MAX_PERSONNE 3 //limite max de personne sur le serveur
+#define NB_MAX_PERSONNE 100 //limite max de personne sur le serveur
 #define MAX_FILE 200 //limite max de personne sur le serveur
-#define NB_MAX_SALON 20
 
 int  NB_PERSONNE_ACTUELLE = 0;//compteur du nombre de personne connecté
 int PORT;
@@ -25,29 +25,10 @@ pthread_mutex_t M2 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au
 
 sem_t semaphore; //semaphore qui sert a la file d'attente
 
-struct mem_Thread { //structure permettant de transférer les arguments dans les différents threads
-    int id; //l'id pour retrouver les éléments dans les tableaux
-    int dSC; //le socket du client
-    char* pseudo; //son pseudo
-};
-
-struct Args_Thread {
-    int id; //l'id pour retrouver les éléments dans les tableaux
-    int dSC; //le socket du client
-};
-
-struct client {
-    int dSC; //socket du client
-    char* pseudo; //son pseudo
-    pthread_t thread; //son thread
-};
-
 struct client tabdSC[NB_MAX_PERSONNE+2]; //tableau des sockets des clients
 
-struct salon tabSalon[NB_MAX_SALON];
-
 //Fonction qui prend en paramètre un socket et l'id dans le tableau
-// elle va supprimer le client du tableau puis fermer le socket
+//elle va supprimer le client du tableau puis fermer le socket
 //Entrée : le socket et l'id
 //Sortie : tableau des sockets modifié
 void fin_connexion(int dSC,int id) {
@@ -64,19 +45,6 @@ void fin_connexion(int dSC,int id) {
 
     sem_post(&semaphore);
     printf("fermeture\n");
-}
-
-//fonction qui arrête le programme et coupe tout les sockets
-void ArretForce(int n) {
-    printf("\33[2K\r");
-    printf("Coupure du programme\n");
-    envoie_everyone_serveur("fermeture du serveur");
-    pthread_mutex_lock(&M1);
-    for (int i = 0;i<NB_MAX_PERSONNE+1;i++) {
-        shutdown(tabdSC[i].dSC,2);
-    }
-    pthread_mutex_unlock(&M1);
-    exit(0);
 }
 
 //Fonction qui envoie message donné en paramètre a tout le monde sauf le client qui a crée le message 
@@ -103,6 +71,19 @@ void envoie_everyone_serveur(char* msg){
         }
     }
     pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
+}
+
+//fonction qui arrête le programme et coupe tout les sockets
+void ArretForce(int n) {
+    printf("\33[2K\r");
+    printf("Coupure du programme\n");
+    envoie_everyone_serveur("fermeture du serveur");
+    pthread_mutex_lock(&M1);
+    for (int i = 0;i<NB_MAX_PERSONNE+1;i++) {
+        shutdown(tabdSC[i].dSC,2);
+    }
+    pthread_mutex_unlock(&M1);
+    exit(0);
 }
 
 //fonction qui permet d'envoyer un message privé a un autre client
@@ -178,7 +159,7 @@ void lecture_envoie(struct mem_Thread args) {
     char* msgrecu = (char*)malloc(sizeof(char));
     msgrecu[0] ='\0'; 
     while (continu) {
-        continu = lecture(args.dSC, &msgrecu); //cas d'erreur de l'envoi, change la valeur de continu
+        continu = lecture(args.dSC, &continu); //cas d'erreur de l'envoi, change la valeur de continu
         if (continu){
             continu = protocol(msgrecu,args);
         }

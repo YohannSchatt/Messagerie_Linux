@@ -1,21 +1,31 @@
+
+//Fonction qui prend une adresse d'un string et met en premier caractère la fin de caractère
+void setMsgVoid(char** msg){
+    *msg[0] = '\0';
+}
+
 //Fonction qui reçoit un message du client associé au socket donnée en paramètre et le met dans message qui sera transmit a la fonction envoyer
 //Entrée : le socket et le pointeur du message
 //Sortie : un Booléen qui précise si on continu la communication, et met à jour le message
-bool lecture(int dSC,char **msg){
+char* lecture(int dSC,bool* continu){
     bool res = true;
     int taille;
     int err = recv(dSC,&taille, sizeof(int), 0);
-    if (err != -1 && err != 0){ //communication de la taille
-        *msg = (char*)malloc(taille*sizeof(char));
-        err = recv(dSC,*msg, taille, 0);
-        if (err == -1 && err == 0){ //reçoit le message
-            res = false;
+    if (err > 0){ //communication de la taille
+        char* msg = (char*)malloc(taille*sizeof(char));
+        err = recv(dSC,msg, taille, 0);
+        if (err <= 0){ //reçoit le message
+            continu = false;
+            setMsgVoid(&msg);
+        }
+        else {
+            return msg;
         }
     }
     else {
-        res = false;
+        continu = false;
     }
-    return res;
+    return NULL;
 }
 
 //Fonction qui envoie le message donnée en paramètre avec le pseudo correspondant au client qu'on a en paramètre grâce au socket
