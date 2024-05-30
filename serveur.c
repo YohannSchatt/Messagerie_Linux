@@ -433,7 +433,8 @@ void* init_connexion(void* args) {
                 i = (i + 1)%NB_MAX_PERSONNE;
             }
 
-            tabdSC[i].thread;
+            tabdSC[i].thread = thread;
+            tabdSC[i].id = i;
             pthread_mutex_unlock(&M1); //on redonne l'accès
 
             struct Args_Thread args;

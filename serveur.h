@@ -1,4 +1,5 @@
 #include <pthread.h>
+#include <stdbool.h>
 
 #define NB_MAX_PERSONNE_SALON 5 //limite max du nombre de personne dans un salon
 
@@ -14,15 +15,16 @@ struct Args_Thread {
 };
 
 struct client {
+    int id;
     int dSC; //socket du client
     char* pseudo; //son pseudo
     pthread_t thread; //son thread
     int id_salon;
+    bool isAdmin;
 };
 
 struct salon{
     int id;
-    char* prop;
     char* nom;
-    struct client client[NB_MAX_PERSONNE_SALON];
+    int client[NB_MAX_PERSONNE_SALON];
 };

@@ -1,4 +1,7 @@
 
+#include <stdbool.h>
+#include <stdlib.h>
+
 //Fonction qui prend une adresse d'un string et met en premier caractère la fin de caractère
 void setMsgVoid(char** msg){
     *msg[0] = '\0';
