@@ -1,3 +1,6 @@
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 //Fonction qui permet de récupérer le pseudo dans une commande
 //Entrée : l'adresse du msg de la commande, la position de l'espace juste devant le pseudo
 //Sortie : le pseudo de l'utilisateur 
@@ -31,7 +34,7 @@ bool verif_commande(char* msg,char* msg_commande){
     bool res = true;
     int i = 0;
     if ((strlen(msg)-1) == (strlen(msg_commande))){ //msg a -1 car on a le lanceur de commande devant
-            while (i<strlen(msg_commande) && msg[i] == '\0' && res ) {
+            while (i<(int)strlen(msg_commande) && msg[i] == '\0' && res ) {
             if (msg[i+1] == msg_commande[i]) { //i+1 car on ne regarde pas le lanceur de commande
                 i++;
             }

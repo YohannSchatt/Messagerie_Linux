@@ -12,7 +12,7 @@
 #include "file.c"
 #include "annexe_serveur.c"
 #include "communication_serveur.c"
-#include "serveur.h"
+#include "salon.c"
 
 #define NB_MAX_PERSONNE 100 //limite max de personne sur le serveur
 #define MAX_FILE 200 //limite max de personne sur le serveur
@@ -409,6 +409,7 @@ void* init_connexion(void* args) {
     socklen_t lg = sizeof(struct sockaddr_in) ; 
 
     sem_init(&semaphore, 0, NB_MAX_PERSONNE); 
+    initSalon();
     int a = 1;
     while(true){ //continue a s'éxecuter 
         sem_wait(&semaphore);
