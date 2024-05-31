@@ -14,7 +14,7 @@ void initSalon(){
 }
 
 //Crée un salon, si le salon est crée renvoie true, false sinon
-bool createSalon(char* nom,struct client c){
+bool createSalon(char* nom,int client){
     int i = 0;
     bool found = false;
     while (i<NB_MAX_SALON && found)
@@ -27,8 +27,9 @@ bool createSalon(char* nom,struct client c){
     if(found){
         tabSalon[i] = malloc(sizeof(struct salon));
         tabSalon[i]->nom = nom;
-        tabSalon[i]->id = c.id;
-        for(int j;j<NB_MAX_PERSONNE_SALON;i++){
+        tabSalon[i]->id = client;
+        tabSalon[i]->NB_MAX = NB_MAX_PERSONNE_SALON;
+        for(int j = 0;j<NB_MAX_PERSONNE_SALON;i++){
             tabSalon[i]->client[j] == -1;
         }
     }
@@ -49,6 +50,7 @@ void AppendUserSalon(int id,int client){
         if(tabSalon[id]->client[i] == -1){
             found = true;
             tabSalon[id]->client[i] = client;
+            tabdSC[client].id_salon = id;  
         }
         i++;
     }
@@ -68,7 +70,7 @@ void RemoveUserSalon(int id, int client){
     return found;
 }
 
-void countNbClientSalon(int id){
+int countNbClientSalon(int id){
     int count = 0;
     for(int i = 0;i<NB_MAX_PERSONNE_SALON;i++){
         if(tabSalon[id]->client[i] == -1){
@@ -78,9 +80,34 @@ void countNbClientSalon(int id){
     return count;
 }
 
+int countNbSalon(){
+    int count = 0;
+    for(int i = 0;i<NB_MAX_PERSONNE_SALON;i++){
+        if(tabSalon[i] != NULL){
+            count++;
+        }
+    }
+    return count;
+}
+
 //renvoie le tableau des utilisateurs du salon
 int* getSalonUser(int id){
     return tabSalon[id]->client; 
+}
+
+//renvoie le tableau des pseudos des utilisateurs 
+int* getSalonUserPseudo(int id,int* nb){
+    *nb = countNbClientSalon(id);
+    char* tab[*nb];
+    int countTab = 0;
+    int i =0;
+    while(countTab<*nb){
+        if(tabSalon[id]->client[i] != -1){
+            tab[countTab] = tabdSC[tabSalon[id]->client[i]].pseudo; //récupère le pseudo 
+        }
+        i++;
+    }
+    return tab; 
 }
 
 //renvoie le nom du salon
@@ -93,8 +120,34 @@ int* getIdProp(int id){
     return tabSalon[id]->id;
 }
 
-void setSalonName(int id){
+int getNbMax(int id){
+    return tabSalon[id]->NB_MAX;
+}
 
+//setteur qui mets a jour le nombre personne max dans le salon
+bool setSalonNbMax(int id,int nb){
+    if (nb<=NB_MAX_PERSONNE_SALON && nb > 1){
+        tabSalon[id]->NB_MAX = nb;
+        return true;
+    }
+    return false;
+}
+
+void setSalonName(int id,char* nom){
+    tabSalon[id]->nom = nom;
+}
+
+void setSalonProp(int id, int new){
+    tabSalon[id]->id = new;
+}
+
+int getIdSalon(char* name){
+    for(int i = 0;i<NB_MAX_SALON;i++){
+        if(strcmp(tabSalon[i]->nom,name) == 0){
+            return i;
+        }
+    }
+    return -1;
 }
 // /join NOM
 // /create NOM

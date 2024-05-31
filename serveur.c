@@ -11,11 +11,7 @@
 #include <semaphore.h>
 #include "file.c"
 #include "annexe_serveur.c"
-#include "communication_serveur.c"
-#include "salon.c"
-
-#define NB_MAX_PERSONNE 100 //limite max de personne sur le serveur
-#define MAX_FILE 200 //limite max de personne sur le serveur
+#include "CommandeSalon.c"
 
 int  NB_PERSONNE_ACTUELLE = 0;//compteur du nombre de personne connecté
 int PORT;
@@ -24,8 +20,6 @@ pthread_mutex_t M1 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au
 pthread_mutex_t M2 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au nombre  des sockets clients
 
 sem_t semaphore; //semaphore qui sert a la file d'attente
-
-struct client tabdSC[NB_MAX_PERSONNE+2]; //tableau des sockets des clients
 
 //Fonction qui prend en paramètre un socket et l'id dans le tableau
 //elle va supprimer le client du tableau puis fermer le socket
@@ -140,6 +134,25 @@ bool protocol(char *msg, struct mem_Thread args){
         else if (strcmp("/fermeture",msg) == 0){
             ArretForce(0);
         }
+        else if (verif_commande("/join",msg)){
+            char* nom = recupNomSalon(msg,7);
+            join(args.id,nom);
+        }
+        else if (verif_commande("/create",msg)){
+            char* nom = recupNomSalon(msg,9);
+            create(args.id,nom);
+        }
+        else if (verif_commande("/delete",msg)){
+            char* nom = recupNomSalon(msg,9);
+            delete(args.id,nom);
+        }
+        else if (verif_commande("/salon",msg)){
+            getSalon(args.id);
+        }
+        else if (verif_commande("/connected",msg)){
+            char* nom = recupNomSalon(msg,12);
+            connected(args.id,nom);
+        }
         else {
             envoie(args.dSC, "Commande inconnu faite /help pour plus d'information");
         }
@@ -156,16 +169,12 @@ bool protocol(char *msg, struct mem_Thread args){
 //Sortie : renvoie rien, mais assure la liaison entre les clients tant que le client du socket ne coupe pas la communication
 void lecture_envoie(struct mem_Thread args) {
     bool continu = true; //booléen qui va assurer la boucle tant que la communication n'est pas coupé 
-    char* msgrecu = (char*)malloc(sizeof(char));
-    msgrecu[0] ='\0'; 
     while (continu) {
-        continu = lecture(args.dSC, &continu); //cas d'erreur de l'envoi, change la valeur de continu
+        char* msgrecu = lecture(args.dSC, &continu); //cas d'erreur de l'envoi, change la valeur de continu
         if (continu){
             continu = protocol(msgrecu,args);
         }
     }
-    free(msgrecu);
-
     //message de fin de communication
 
     char* msgcomplet = creation_msg_serveur("a quitté le serveur",args.pseudo," ");
@@ -409,7 +418,10 @@ void* init_connexion(void* args) {
     socklen_t lg = sizeof(struct sockaddr_in) ; 
 
     sem_init(&semaphore, 0, NB_MAX_PERSONNE); 
+
     initSalon();
+    createSalon("main",-1); //création du salon principale qui appartient a personne
+
     int a = 1;
     while(true){ //continue a s'éxecuter 
         sem_wait(&semaphore);
@@ -441,6 +453,8 @@ void* init_connexion(void* args) {
             struct Args_Thread args;
             args.dSC = dSC;
             args.id = i;
+
+            AppendUserSalon(0,args.id); //le salon main sera toujours sur 0
 
             pthread_create(&thread, NULL, choixPseudo,(void*)&args); //on lance le thread du client
         }

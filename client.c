@@ -182,7 +182,7 @@ bool lecture(int dS, bool* continu,char* pseudo){
             //pthread_mutex_lock(&M1); //on bloque l'accès au booléen car il peut être changé pendant la lecture
             if (*continu){
                 printf("\33[2K\r");
-                puts(msg);
+                printf("%s\n",msg);
                 printf("%s : ", pseudo);
                 setbuf(stdout, NULL);
             }
@@ -229,11 +229,11 @@ bool envoie(int dS, char** msg,bool* continu, char* pseudo){
         }
         if (*msg[0] != '\0'){
             int taille = strlen(*msg)+1; //on récupère la taille du message (+1 pour le caractère de '\0')
-            if (send(dS, &taille, sizeof(int), 0) == -1 || send(dS, *msg, taille, 0) == -1){ //envoie de la taille et le message
+            if (send(dS, &taille, sizeof(int), 0) <= 0 || send(dS, *msg, taille, 0) <= 0){ //envoie de la taille et le message
                 res = false;
             }
         }
-        printf("%s : ", pseudo); //affichage en dessous comme le message de join va permettre d'afficher avant
+        printf("\n%s : ", pseudo); //affichage en dessous comme le message de join va permettre d'afficher avant
         return res;
     }
     return false;

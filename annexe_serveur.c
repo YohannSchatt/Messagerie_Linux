@@ -29,13 +29,12 @@ char* recup_message(char* msg, int pos){
     return message;
 }
 
-//Fonction qui permet de vérifier la char* entrée par l'utilisateur existe
-bool verif_commande(char* msg,char* msg_commande){
+bool verif_commande(char* msg_commande,char* msg){
     bool res = true;
-    int i = 0;
-    if ((strlen(msg)-1) == (strlen(msg_commande))){ //msg a -1 car on a le lanceur de commande devant
-            while (i<(int)strlen(msg_commande) && msg[i] == '\0' && res ) {
-            if (msg[i+1] == msg_commande[i]) { //i+1 car on ne regarde pas le lanceur de commande
+    int i = 1; //on ne regarde pas le /
+    if ((strlen(msg)-1) >= (strlen(msg_commande)) && strlen(msg) > 1){
+        while(i<(int)strlen(msg_commande) && i<(int)strlen(msg) && res){
+            if (msg[i] == msg_commande[i]) {
                 i++;
             }
             else {
@@ -44,6 +43,18 @@ bool verif_commande(char* msg,char* msg_commande){
         }
     }
     return res;
+}
+
+char* recupNomSalon(char* msg,int pos){
+    int count = 0;
+    while(msg[pos+count] != ' ' && msg[pos+count] != '\0'){
+        count++;
+    }
+    char* nom = (char*)malloc(count*sizeof(char));
+    for(int i = 0; i < count ; i++){
+        nom[i] = msg[pos+i];
+    }
+    return nom;
 }
 
 //Cette fonction fusionne le pseudo de la personne concerné, et le message principale avec des caractères qui les joints

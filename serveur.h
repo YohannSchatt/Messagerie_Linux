@@ -1,7 +1,9 @@
 #include <pthread.h>
 #include <stdbool.h>
 
-#define NB_MAX_PERSONNE_SALON 5 //limite max du nombre de personne dans un salon
+#define NB_MAX_PERSONNE_SALON 100 //limite max du nombre de personne dans un salon
+#define NB_MAX_PERSONNE 100 //limite max de personne sur le serveur
+#define MAX_FILE 200 //limite max de personne sur le serveur
 
 struct mem_Thread { //structure permettant de transférer les arguments dans les différents threads
     int id; //l'id pour retrouver les éléments dans les tableaux
@@ -27,4 +29,7 @@ struct salon{
     int id;
     char* nom;
     int client[NB_MAX_PERSONNE_SALON];
+    int NB_MAX;
 };
+
+struct client tabdSC[NB_MAX_PERSONNE+2]; //tableau des sockets des clients

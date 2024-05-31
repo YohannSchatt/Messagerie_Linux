@@ -1,7 +1,7 @@
 # Variables
 CC = gcc
 DEPS = serveur.h
-CFLAGS := -Wall -Wextra -std=c99 -Wpedantic -fsanitize=address,undefined -g
+CFLAGS := -Wall -Wextra -std=c99 -Wpedantic -g
 OBJ = serveur.c client.c
 TARGETS = $(OBJ:.c=)
 
