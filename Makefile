@@ -1,20 +1,16 @@
 # Variables
 CC = gcc
-CFLAGS := -Wall -Wextra -std=c99 -Wpedantic -fsanitize=address,undefined -g
 DEPS = serveur.h
-OBJ = serveur.o client.o file.o annexe_serveur.o communication_serveur.o salon.o
-
-# Règle par défaut
-all: $(OBJ)
-
-# Règles pour les fichiers objets
-%.o: %.c
-	$(CC) -c -o $@ $< $(CFLAGS)
+CFLAGS := -Wall -Wextra -std=c99 -Wpedantic -fsanitize=address,undefined -g
+OBJ = serveur.c client.c
+TARGETS = $(OBJ:.c=)
 
 # Règles pour les fichiers objets
-%.o: %.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS)
+%: %.c $(DEPS)
+	$(CC) -o $@ $< $(CFLAGS)
 
-# Règle de nettoyage
+all: $(TARGETS)
+
+.PHONY: clean
 clean:
-	rm -f $(OBJ)
+	rm -f $(TARGETS)
