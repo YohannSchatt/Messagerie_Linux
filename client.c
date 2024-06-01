@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <dirent.h>
 #include "file.c"
+#include "censure.c"
 
 #define MAX_FILE 200 //limite max de personne sur le serveur
 
@@ -204,6 +205,10 @@ bool envoie(int dS, char** msg,bool* continu, char* pseudo){
         fgets(*msg,128,stdin);
         char *pos = strchr(*msg,'\n'); //cherche le '\n' 
         *pos = '\0'; // le change en '\0' pour la fin du message et la cohérence de l'affichage
+        
+        // Censure des insultes dans le message
+        censorMessage(*msg);
+
         if(strcmp(*msg,"/quitter") == 0 || strcmp(*msg,"/fermeture") == 0){
             res = false;
         }
@@ -321,6 +326,11 @@ int main(int argc, char* argv[]){
     signal(SIGINT, ArretForce);
     IP = argv[1];
     PORT = atoi(argv[2]);
+
+    // Charger les mots "jolis" à partir du fichier spécifié
+    loadJoliWords("jolis_mots.txt", joliWords, MAX_FORBIDDEN_WORDS);
+
+    loadForbiddenWords("mots_interdits.txt", forbiddenWords, MAX_FORBIDDEN_WORDS);
 
     if (argc != 3) { //si le programme n'a pas 2 arguments
         printf("./client IP Port\n");
