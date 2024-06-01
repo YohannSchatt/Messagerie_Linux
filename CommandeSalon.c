@@ -38,22 +38,34 @@ char* concat(char* c1, char* c2){
 void join(int client,char* name){
     int id_salon = getIdSalon(name);
     if (id_salon >= 0){
-        tabdSC[client].id_salon =  id_salon;
+        pthread_mutex_lock(&M1);
+        printf("id_salon : %d\n",tabdSC[client].id_salon);
         RemoveUserSalon(tabdSC[client].id_salon,client);
+        tabdSC[client].id_salon = id_salon;
         AppendUserSalon(id_salon,client);
-        envoie(tabdSC[client].dSC,strcat("vous avez rejoint le salon : ",name));
+        pthread_mutex_unlock(&M1);
+        envoie(tabdSC[client].dSC,concat("vous avez rejoint le salon : ",name));
     }
     else {
-        envoie(tabdSC[client].dSC,"Ce salon n'existe pas");
+        envoie(tabdSC[client].dSC,"Ce salon n'existe pas ou il n'y plus de place");
     }
 }
 
 void create(int client, char* name){
-
+    if(createSalon(name,client)){
+        envoie(tabdSC[client].dSC,"Le salon est créé");
+    }
+    else {
+        envoie(tabdSC[client].dSC,"erreur lors de la création du salon");
+    }
 }
 
 void delete(int client, char* name){
-
+    int id_salon = getIdSalon(name);
+    pthread_mutex_lock(&M1);
+    deleteSalon(id_salon);
+    pthread_mutex_unlock(&M1);
+    envoie(tabdSC[client].dSC,"Le salon est supprimé");
 }
 
 void getSalon(int client){

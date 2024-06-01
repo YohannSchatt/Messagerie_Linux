@@ -81,12 +81,6 @@ bool createSalon(char* nom,int client){
     return found;
 }
 
-//supprime un salon, si le salon précisé n'existe pas, ne se passe rien
-void deleteSalon(int id){
-    free(tabSalon[id]);
-    tabSalon[id] = NULL; 
-}
-
 //Ajoute un utilisateur a un salon, si l'opération a réussi, alors renvoie true, sinon false
 bool AppendUserSalon(int id,int client){
     int i = 0;
@@ -96,24 +90,38 @@ bool AppendUserSalon(int id,int client){
             found = true;
             tabSalon[id]->client[i] = client;
             tabdSC[client].id_salon = id;
-            printf("id_salon : %d\n",tabdSC[client].id_salon);
+            //printf("id_salon : %d\n",tabdSC[client].id_salon);
         }
         i++;
     }
     return found;
 }
 
-bool RemoveUserSalon(int id, int client){
+void RemoveUserSalon(int id, int client){
     int i = 0;
-    bool found = false;
-    while(i<NB_MAX_PERSONNE_SALON && found){
-        if(tabSalon[id]->client[i] == -1){
-            found = true;
-            tabSalon[id]->client[i] = client;
+    bool res = false;
+    while(i<NB_MAX_PERSONNE_SALON && !res){
+        printf("%d , %d\n",tabSalon[id]->client[i],client);
+        if(tabSalon[id]->client[i] == client){
+            res = true;
+            tabSalon[id]->client[i] = -1;
         }
         i++;
     }
-    return found;
+}
+
+//supprime un salon, si le salon précisé n'existe pas, ne se passe rien
+void deleteSalon(int id){
+    for(int i = 0;i<NB_MAX_PERSONNE_SALON;i++){
+        if (tabSalon[id]->client[i] != -1){
+            int id_client = tabSalon[id]->client[i];
+            envoie(tabdSC[id_client].dSC,"Salon supprimé redirection vers le main");
+            RemoveUserSalon(id,id_client);
+            AppendUserSalon(0,id_client); //renvoie tout les clients sur le main
+        }
+    }
+    free(tabSalon[id]);
+    tabSalon[id] = NULL; 
 }
 
 int countNbClientSalon(int id){

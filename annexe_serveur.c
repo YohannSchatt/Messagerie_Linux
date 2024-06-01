@@ -35,7 +35,6 @@ bool verif_commande(char* msg_commande,char* msg){
     if ((strlen(msg)) >= (strlen(msg_commande))){
         res = true;
         while(i<(int)strlen(msg_commande) && i<(int)strlen(msg) && msg[i] != '\0' && msg[i] != ' ' && msg_commande[i] != '\0' && msg_commande[i] != ' ' && res){
-            printf("%c,%c\n",msg[i],msg_commande[i]);
             if (msg[i] == msg_commande[i]) {
                 i++;
             }

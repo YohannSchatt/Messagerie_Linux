@@ -42,11 +42,13 @@ void fin_connexion(int dSC,int id) {
 //Fonction qui envoie message donné en paramètre a tout le monde sauf le client qui a crée le message 
 //Entrée : le socket du client qui envoie le message
 //Sortie : renvoie rien, a envoyé le message à tout le monde sauf le client a l'origine du message
-void envoie_everyone_client(int dSC,char* msg){
+void envoie_everyone_client(int id,char* msg){
     pthread_mutex_lock(&M1); //on bloque l'accès au tableau
-    for(int i = 0;i<NB_MAX_PERSONNE;i++) {
-        if (tabdSC[i].dSC != -1 && dSC != tabdSC[i].dSC) { //si le socket existe et est différent de celui de notre client alors on envoie le message
-            envoie(tabdSC[i].dSC, msg);
+    int id_salon = tabdSC[id].id_salon;
+    int* ClientInSalon = getSalonUser(id_salon);
+    for(int i = 0;i<NB_MAX_PERSONNE_SALON;i++) {
+        if (ClientInSalon[i] != -1 && id != ClientInSalon[i]) { //si le socket existe et est différent de celui de notre client alors on envoie le message
+            envoie(tabdSC[ClientInSalon[i]].dSC, msg);
         }
     }
     pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
@@ -71,7 +73,7 @@ void ArretForce(int n) {
     printf("Coupure du programme\n");
     envoie_everyone_serveur("fermeture du serveur");
     pthread_mutex_lock(&M1);
-    for (int i = 0;i<NB_MAX_PERSONNE+1;i++) {
+    for (int i = 0;i<NB_MAX_PERSONNE;i++) {
         shutdown(tabdSC[i].dSC,2);
     }
     pthread_mutex_unlock(&M1);
@@ -133,15 +135,15 @@ bool protocol(char *msg, struct mem_Thread args){
             ArretForce(0);
         }
         else if (verif_commande("/join",msg)){
-            char* nom = recupNomSalon(msg,7);
+            char* nom = recupNomSalon(msg,6);
             join(args.id,nom);
         }
         else if (verif_commande("/create",msg)){
-            char* nom = recupNomSalon(msg,9);
+            char* nom = recupNomSalon(msg,8);
             create(args.id,nom);
         }
         else if (verif_commande("/delete",msg)){
-            char* nom = recupNomSalon(msg,9);
+            char* nom = recupNomSalon(msg,8);
             delete(args.id,nom);
         }
         else if (verif_commande("/getSalon",msg)){
@@ -157,7 +159,7 @@ bool protocol(char *msg, struct mem_Thread args){
     }
     else {
         char* message_complet = creation_msg_client_public(msg,args.pseudo);
-        envoie_everyone_client(args.dSC,message_complet);
+        envoie_everyone_client(args.id,message_complet);
     }
     return res;
 }
@@ -261,8 +263,12 @@ void* choixPseudo(void* args_thread){
     args.id = th.id; //la position du socket du client dans le tableau
     args.dSC = th.dSC;
 
+    pthread_mutex_lock(&M1);    
+
     tabdSC[args.id].dSC = args.dSC;
-    tabdSC[args.id].pseudo = args.pseudo; 
+    tabdSC[args.id].pseudo = args.pseudo;
+
+    pthread_mutex_unlock(&M1); 
 
     char* msgcomplet = creation_msg_serveur("a rejoint le serveur",args.pseudo," ");
     envoie_everyone_serveur(msgcomplet);
