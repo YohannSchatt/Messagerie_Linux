@@ -15,9 +15,7 @@
 
 int  NB_PERSONNE_ACTUELLE = 0;//compteur du nombre de personne connecté
 int PORT;
- 
-pthread_mutex_t M1 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au tableau des sockets clients
-pthread_mutex_t M2 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au nombre  des sockets clients
+
 
 sem_t semaphore; //semaphore qui sert a la file d'attente
 
@@ -146,11 +144,11 @@ bool protocol(char *msg, struct mem_Thread args){
             char* nom = recupNomSalon(msg,9);
             delete(args.id,nom);
         }
-        else if (verif_commande("/salon",msg)){
+        else if (verif_commande("/getSalon",msg)){
             getSalon(args.id);
         }
         else if (verif_commande("/connected",msg)){
-            char* nom = recupNomSalon(msg,12);
+            char* nom = recupNomSalonUser(args.id);
             connected(args.id,nom);
         }
         else {
@@ -418,15 +416,12 @@ void* init_connexion(void* args) {
     socklen_t lg = sizeof(struct sockaddr_in) ; 
 
     sem_init(&semaphore, 0, NB_MAX_PERSONNE); 
-
     initSalon();
     createSalon("main",-1); //création du salon principale qui appartient a personne
-
     int a = 1;
     while(true){ //continue a s'éxecuter 
         sem_wait(&semaphore);
         int dSC = accept(dS, (struct sockaddr*) &aC,&lg); //crée le socket client
-        printf("%d\n",dSC);
         if (dSC == -1) { //gestion de l'erreur de accept
             printf("problème de connexion\n");
         }
@@ -454,7 +449,9 @@ void* init_connexion(void* args) {
             args.dSC = dSC;
             args.id = i;
 
-            AppendUserSalon(0,args.id); //le salon main sera toujours sur 0
+            if (!AppendUserSalon(0,args.id)){ //le salon main sera toujours sur 0
+                printf("erreur ajout a un salon\n");
+            }
 
             pthread_create(&thread, NULL, choixPseudo,(void*)&args); //on lance le thread du client
         }

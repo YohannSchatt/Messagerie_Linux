@@ -30,16 +30,21 @@ char* recup_message(char* msg, int pos){
 }
 
 bool verif_commande(char* msg_commande,char* msg){
-    bool res = true;
+    bool res = false;
     int i = 1; //on ne regarde pas le /
-    if ((strlen(msg)-1) >= (strlen(msg_commande)) && strlen(msg) > 1){
-        while(i<(int)strlen(msg_commande) && i<(int)strlen(msg) && res){
+    if ((strlen(msg)) >= (strlen(msg_commande))){
+        res = true;
+        while(i<(int)strlen(msg_commande) && i<(int)strlen(msg) && msg[i] != '\0' && msg[i] != ' ' && msg_commande[i] != '\0' && msg_commande[i] != ' ' && res){
+            printf("%c,%c\n",msg[i],msg_commande[i]);
             if (msg[i] == msg_commande[i]) {
                 i++;
             }
             else {
                 res = false;
             }
+        }
+        if (res && i <strlen(msg) && msg[i] != ' '){ //si le mot écrit commence pareil que le nom de la commande mais est plus grand
+            res = false;
         }
     }
     return res;

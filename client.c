@@ -328,7 +328,6 @@ int main(int argc, char* argv[]){
     else{
         printf("Début programme\n");
         int dS = socket(PF_INET, SOCK_STREAM, 0); //crée le socket
-        printf("%d\n",dS);
         d = dS;
         printf("Socket Créé\n");
         struct sockaddr_in aS;

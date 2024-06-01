@@ -46,7 +46,6 @@ char* getPath(char* file,char* name){
     path[0] = '\0'; //pour éviter de modifier des parties de mémoire ou on a pas accès
     strcat(path,file);
     strcat(path,name);
-    printf("%s\n",path);
     return path;
 }
 

@@ -1,13 +1,12 @@
 # Variables
 CC = gcc
 DEPS = serveur.h
-CFLAGS := -Wall -Wextra -std=c99 -Wpedantic -g
 OBJ = serveur.c client.c
 TARGETS = $(OBJ:.c=)
 
 # Règles pour les fichiers objets
 %: %.c $(DEPS)
-	$(CC) -o $@ $< $(CFLAGS)
+	$(CC) -o $@ $<
 
 all: $(TARGETS)
 
