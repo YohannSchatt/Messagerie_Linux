@@ -32,7 +32,6 @@ void fin_connexion(int dSC,int id) {
     pthread_mutex_lock(&M2); //reouvre le nombre de personne
     NB_PERSONNE_ACTUELLE--;
     pthread_mutex_unlock(&M2); //empêche le nombre de personne présente d'être accédé pour éviter problème d'exclusion mutuelles
-
     shutdown(dSC,2); //ferme le socket
 
     sem_post(&semaphore);
@@ -153,6 +152,38 @@ bool protocol(char *msg, struct mem_Thread args){
             char* nom = recupNomSalonUser(args.id);
             connected(args.id,nom);
         }
+        else if (verif_commande("/kick",msg)){
+            char* nom = recupNomSalon(msg,6); //utilisation de la même fonction de récupération du salon pour le speudo comme c'est le même principe
+            int i = 0;
+            bool found = false;
+            pthread_mutex_lock(&M1);
+            if(strcmp(nom,args.pseudo) == 0){
+                envoie(tabdSC[args.id].dSC, "tu es maso ?");
+                pthread_mutex_unlock(&M1);
+            }
+            else {
+                while(i<NB_MAX_PERSONNE && !found){
+                    if(strcmp(nom,tabdSC[i].pseudo) == 0){
+                        found = true;
+                        envoie(tabdSC[i].dSC,"Vous êtes kick !");
+                        printf("test\n");
+                        int rc = pthread_cancel(tabdSC[i].thread);
+                        printf("zdzq\n");
+                        if (rc) {
+                            printf("Erreur : impossible d'annuler le thread %d, code d'erreur: %d\n",i,rc);
+                        }
+                        pthread_mutex_unlock(&M1);
+                        printf("a\n");
+                        fin_connexion(tabdSC[i].dSC,i);
+                    }
+                    i++;
+                }
+                if(!found){
+                    envoie(tabdSC[args.id].dSC,"l'utilisateur n'existe pas");
+                    pthread_mutex_unlock(&M1);
+                }
+            }
+        }
         else {
             envoie(args.dSC, "Commande inconnu faite /help pour plus d'information");
         }
@@ -161,6 +192,7 @@ bool protocol(char *msg, struct mem_Thread args){
         char* message_complet = creation_msg_client_public(msg,args.pseudo);
         envoie_everyone_client(args.id,message_complet);
     }
+    printf("sfsefef\n");
     return res;
 }
 
@@ -170,9 +202,12 @@ bool protocol(char *msg, struct mem_Thread args){
 void lecture_envoie(struct mem_Thread args) {
     bool continu = true; //booléen qui va assurer la boucle tant que la communication n'est pas coupé 
     while (continu) {
+        printf("coucou1, %d\n",args.dSC);
         char* msgrecu = lecture(args.dSC, &continu); //cas d'erreur de l'envoi, change la valeur de continu
+        printf("coucou, %d\n",args.dSC);
         if (continu){
             continu = protocol(msgrecu,args);
+            printf("coucou3\n");
         }
     }
     //message de fin de communication
@@ -447,7 +482,6 @@ void* init_connexion(void* args) {
                 i = (i + 1)%NB_MAX_PERSONNE;
             }
 
-            tabdSC[i].thread = thread;
             tabdSC[i].id = i;
             pthread_mutex_unlock(&M1); //on redonne l'accès
 
@@ -459,7 +493,7 @@ void* init_connexion(void* args) {
                 printf("erreur ajout a un salon\n");
             }
 
-            pthread_create(&thread, NULL, choixPseudo,(void*)&args); //on lance le thread du client
+            pthread_create(&tabdSC[i].thread, NULL, choixPseudo,(void*)&args); //on lance le thread du client
         }
     }
 }
