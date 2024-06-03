@@ -25,11 +25,11 @@ sem_t semaphore; //semaphore qui sert a la file d'attente
  * @param id l'id du client dans le tableau
 */
 void fin_connexion(int dSC,int id) {
-
+    puts("banane14");
     pthread_mutex_lock(&M1); //empêche le tableau d'être accédé pour éviter problème d'exclusion mutuelle
     tabdSC[id].dSC = -1;
     pthread_mutex_unlock(&M1); //reouvre le tableau
-
+    puts("banane13");
     pthread_mutex_lock(&M2); //reouvre le nombre de personne
     NB_PERSONNE_ACTUELLE--;
     pthread_mutex_unlock(&M2); //empêche le nombre de personne présente d'être accédé pour éviter problème d'exclusion mutuelles
@@ -47,13 +47,20 @@ void fin_connexion(int dSC,int id) {
 void envoie_everyone_client(int id,char* msg){
     pthread_mutex_lock(&M1); //on bloque l'accès au tableau
     int id_salon = tabdSC[id].id_salon;
+    puts("banane16");
     int* ClientInSalon = getSalonUser(id_salon);
+    puts("banane17");
     for(int i = 0;i<NB_MAX_PERSONNE_SALON;i++) {
-        if (ClientInSalon[i] != -1 && id != ClientInSalon[i]) { //si le socket existe et est différent de celui de notre client alors on envoie le message
+        if (ClientInSalon[i] != -1 && id != ClientInSalon[i] && tabdSC[ClientInSalon[i]].dSC > 0) { //si le socket existe et est différent de celui de notre client alors on envoie le message
+            puts(tabdSC[ClientInSalon[i]].pseudo);
             envoie(tabdSC[ClientInSalon[i]].dSC, msg);
         }
     }
     pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
+}
+
+void errorsocket(int id){
+    tabdSC[id].dSC = -1;
 }
 
 /**
@@ -226,17 +233,27 @@ bool protocol(char *msg, struct mem_Thread args){
  * @param args struct d'argument pour le thread, contenant le socket du client, le pseudo et l'id du client dans le tableau
 */
 void lecture_envoie(struct mem_Thread args) {
+    puts("banane8");
     bool continu = true; //booléen qui va assurer la boucle tant que la communication n'est pas coupé 
     while (continu) {
+        puts("banane9");
         char* msgrecu = lecture(args.dSC, &continu); //cas d'erreur de l'envoi, change la valeur de continu
-        if (continu){
+        puts("banane10");
+        if (continu && msgrecu != NULL){
             continu = protocol(msgrecu,args);
         }
+        else {
+            continu = false;
+            errorsocket(args.id);
+        }
     }
+    puts("banane10");
     //message de fin de communication
 
     char* msgcomplet = creation_msg_serveur("a quitté le serveur",args.pseudo," ");
+    puts("banane11");
     envoie_everyone_client(args.dSC,msgcomplet);
+    puts("banane12");
     fin_connexion(args.dSC,args.id); //si communication coupé alors on mets fin au socket
 }
 
@@ -317,24 +334,28 @@ void* choixPseudo(void* args_thread){
             shutdown(th.dSC,2);
             perror("erreur recv taille\n");
             pthread_exit(0);
-        } 
+        }
+        puts("banane0");
         args.pseudo = (char*)malloc(taille*sizeof(char));
         if (args.pseudo == NULL){
             shutdown(th.dSC,2);
             perror("erreur allocation mémoire pseudo\n");
             pthread_exit(0);
         }
+        puts("banane1");
         if(recv(th.dSC, args.pseudo, sizeof(char)*taille, 0) <= 0){ //reçoit le message
             shutdown(th.dSC,2);
             perror("erreur réception pseudo\n");
             pthread_exit(0);
-        } 
+        }
+        puts("banane2");
         char* pos = (char*)malloc(sizeof(char));
         if (pos = NULL){
             shutdown(th.dSC,2);
             perror("erreur allocation pos\n");
             pthread_exit(0);
         }
+        puts("banane3");
         pos = strchr(args.pseudo,' ');
         if (strlen(args.pseudo)> 0 && args.pseudo[0] != ' '){ //vérifie si le premier caractère n'est pas un espace
             if (pos != NULL){ //propriété de la fonction strchr renvoie NULL si il n'y a pas le caratère demandé
@@ -344,11 +365,13 @@ void* choixPseudo(void* args_thread){
                 continu = false;
             }
         }
+        puts("banane4");
         if(send(th.dSC,&continu, sizeof(bool), 0) <= 0){
             shutdown(th.dSC,2);
             perror("erreur envoie continu\n");
             pthread_exit(0);
         }
+        puts("banane5");
     }
 
 
@@ -362,10 +385,10 @@ void* choixPseudo(void* args_thread){
     tabdSC[args.id].pseudo = args.pseudo;
 
     pthread_mutex_unlock(&M1); 
-
+    puts("banane6");
     char* msgcomplet = creation_msg_serveur("a rejoint le serveur",args.pseudo," ");
     envoie_everyone_serveur(msgcomplet);
-
+    puts("banane7");
     lecture_envoie(args); //le client va pouvoir commencer a communiquer
 }
 

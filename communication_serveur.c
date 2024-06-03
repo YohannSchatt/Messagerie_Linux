@@ -8,7 +8,7 @@
  * @return la chaine est directement modifié
 */
 void setMsgVoid(char** msg){
-    *msg[0] = '\0';
+    *msg = NULL;
 }
 
 /**
@@ -25,6 +25,7 @@ char* lecture(int dSC,bool* continu){
         char* msg = (char*)malloc(taille*sizeof(char));
         err = recv(dSC,msg, taille, 0);
         if (err <= 0){ //reçoit le message
+            puts("caca");
             continu = false;
             setMsgVoid(&msg);
         }
@@ -45,7 +46,12 @@ char* lecture(int dSC,bool* continu){
 */
 void envoie(int dSC,char* msg){
     int taille = strlen(msg)+1;
-    if(send(dSC, &taille, sizeof(int), 0) != -1){
-        send(dSC, msg, taille, 0);
+    if(send(dSC, &taille, sizeof(int), 0) < 0){
+        perror("envoie msg problème");
+        pthread_exit(0);
+    }
+    if(send(dSC, msg, taille, 0) < 0){
+        perror("envoie msg problème");
+        pthread_exit(0);
     }
 }

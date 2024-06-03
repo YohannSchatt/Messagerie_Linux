@@ -349,9 +349,9 @@ int main(int argc, char* argv[]){
     PORT = atoi(argv[2]);
 
     // Charger les mots "jolis" à partir du fichier spécifié
-    loadJoliWords("jolis_mots.txt", joliWords, MAX_FORBIDDEN_WORDS);
+    loadJoliWords("./jolis_mots.txt", joliWords, MAX_FORBIDDEN_WORDS);
 
-    loadForbiddenWords("mots_interdits.txt", forbiddenWords, MAX_FORBIDDEN_WORDS);
+    loadForbiddenWords("./mots_interdits.txt", forbiddenWords, MAX_FORBIDDEN_WORDS);
 
     if (argc != 3) { //si le programme n'a pas 2 arguments
         printf("./client IP Port\n");
