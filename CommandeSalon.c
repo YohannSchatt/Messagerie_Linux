@@ -135,3 +135,38 @@ void connected(int client,char* name){
     free(tab);
     free(str);
 }
+
+int countNbClient(){
+    int count = 0;
+    for (int i =0;i<NB_MAX_PERSONNE;i++){
+        if (tabdSC[i].dSC != -1){
+            count++;
+        }
+    }
+    return count;
+}
+
+char** getUserPseudo(int nb){
+    char** tab = malloc(sizeof(char*)*nb);
+    int countTab = 0;
+    int i = 0;
+    while(countTab<nb){
+        if(tabdSC[i].dSC != -1){
+            tab[countTab] = tabdSC[i].pseudo;
+            countTab++;
+        }
+        i++;
+    }
+    return tab;
+}
+
+char* serveur(int dSC){
+    int nb = countNbClient();
+    char** tab = malloc(sizeof(char*)*nb);
+    tab = getUserPseudo(nb);
+    char* msg = concatAllTab(tab,nb);
+    char* str = malloc(12*sizeof(char));
+    sprintf(str,"%d",nb);
+    envoie(dSC,concat("Nombre de personne connecté dans le serveur : ",str));
+    envoie(dSC,concat("personne connecté aux serveur:\n",msg));
+}

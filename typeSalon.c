@@ -159,7 +159,6 @@ void RemoveUserSalon(int id, int client){
     int i = 0;
     bool res = false;
     while(i<NB_MAX_PERSONNE_SALON && !res){
-        printf("%d , %d\n",tabSalon[id]->client[i],client);
         if(tabSalon[id]->client[i] == client){
             res = true;
             tabSalon[id]->client[i] = -1;

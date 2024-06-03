@@ -255,7 +255,7 @@ bool envoie(int dS, char** msg,bool* continu, char* pseudo){
                 res = false;
             }
         }
-        printf("\n%s : ", pseudo); //affichage en dessous comme le message de join va permettre d'afficher avant
+        printf("%s : ", pseudo); //affichage en dessous comme le message de join va permettre d'afficher avant
         return res;
     }
     return false;

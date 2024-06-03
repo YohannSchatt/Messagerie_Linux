@@ -34,7 +34,7 @@ void fin_connexion(int dSC,int id) {
     NB_PERSONNE_ACTUELLE--;
     pthread_mutex_unlock(&M2); //empêche le nombre de personne présente d'être accédé pour éviter problème d'exclusion mutuelles
     shutdown(dSC,2); //ferme le socket
-
+    RemoveUserSalon(tabdSC[id].id_salon,id);
     sem_post(&semaphore);
     printf("fermeture\n");
 }
@@ -61,6 +61,7 @@ void envoie_everyone_client(int id,char* msg){
 
 void errorsocket(int id){
     tabdSC[id].dSC = -1;
+    RemoveUserSalon(tabdSC[id].id_salon,id);
 }
 
 /**
@@ -105,11 +106,7 @@ void envoie_prive_client(char* msg,char* pseudo,struct mem_Thread args){
     int i = 0;
     bool envoye = false;
     pthread_mutex_lock(&M1); //on bloque l'accès au tableau
-    printf("%s\n", pseudo);
     while (i<NB_MAX_PERSONNE && !envoye){
-        if (tabdSC[i].dSC != -1) {
-            printf("%s\n",tabdSC[i].pseudo);
-        }
         if(tabdSC[i].dSC != -1 && strcmp(tabdSC[i].pseudo,pseudo) == 0){
             envoie(tabdSC[i].dSC,msg);
         }
@@ -150,7 +147,6 @@ bool protocol(char *msg, struct mem_Thread args){
     bool res = true;
     if (msg[0] == '@'){
         char* pseudo_client_recevoir = recup_pseudo(msg, 1);
-        printf("%sz",pseudo_client_recevoir);
         char* contenu_msg = recup_message(msg,strlen(pseudo_client_recevoir)+1);
         char* message_complet = creation_msg_client_prive(contenu_msg,args.pseudo);
         envoie_prive_client(message_complet,pseudo_client_recevoir,args);
@@ -184,6 +180,9 @@ bool protocol(char *msg, struct mem_Thread args){
             char* nom = recupNomSalonUser(args.id);
             connected(args.id,nom);
         }
+        else if (verif_commande("/serveur",msg)){
+            serveur(args.dSC);
+        }
         else if (verif_commande("/kick",msg)){
             char* nom = recupNomSalon(msg,6); //utilisation de la même fonction de récupération du salon pour le speudo comme c'est le même principe
             int i = 0;
@@ -198,14 +197,11 @@ bool protocol(char *msg, struct mem_Thread args){
                     if(strcmp(nom,tabdSC[i].pseudo) == 0){
                         found = true;
                         envoie(tabdSC[i].dSC,"Vous êtes kick !");
-                        printf("test\n");
                         int rc = pthread_cancel(tabdSC[i].thread);
-                        printf("zdzq\n");
                         if (rc) {
                             printf("Erreur : impossible d'annuler le thread %d, code d'erreur: %d\n",i,rc);
                         }
                         pthread_mutex_unlock(&M1);
-                        printf("a\n");
                         fin_connexion(tabdSC[i].dSC,i);
                     }
                     i++;
@@ -224,7 +220,6 @@ bool protocol(char *msg, struct mem_Thread args){
         char* message_complet = creation_msg_client_public(msg,args.pseudo);
         envoie_everyone_client(args.id,message_complet);
     }
-    printf("sfsefef\n");
     return res;
 }
 
@@ -233,12 +228,9 @@ bool protocol(char *msg, struct mem_Thread args){
  * @param args struct d'argument pour le thread, contenant le socket du client, le pseudo et l'id du client dans le tableau
 */
 void lecture_envoie(struct mem_Thread args) {
-    puts("banane8");
     bool continu = true; //booléen qui va assurer la boucle tant que la communication n'est pas coupé 
     while (continu) {
-        puts("banane9");
         char* msgrecu = lecture(args.dSC, &continu); //cas d'erreur de l'envoi, change la valeur de continu
-        puts("banane10");
         if (continu && msgrecu != NULL){
             continu = protocol(msgrecu,args);
         }
@@ -247,13 +239,10 @@ void lecture_envoie(struct mem_Thread args) {
             errorsocket(args.id);
         }
     }
-    puts("banane10");
     //message de fin de communication
 
     char* msgcomplet = creation_msg_serveur("a quitté le serveur",args.pseudo," ");
-    puts("banane11");
     envoie_everyone_client(args.dSC,msgcomplet);
-    puts("banane12");
     fin_connexion(args.dSC,args.id); //si communication coupé alors on mets fin au socket
 }
 
@@ -335,27 +324,23 @@ void* choixPseudo(void* args_thread){
             perror("erreur recv taille\n");
             pthread_exit(0);
         }
-        puts("banane0");
         args.pseudo = (char*)malloc(taille*sizeof(char));
         if (args.pseudo == NULL){
             shutdown(th.dSC,2);
             perror("erreur allocation mémoire pseudo\n");
             pthread_exit(0);
         }
-        puts("banane1");
         if(recv(th.dSC, args.pseudo, sizeof(char)*taille, 0) <= 0){ //reçoit le message
             shutdown(th.dSC,2);
             perror("erreur réception pseudo\n");
             pthread_exit(0);
         }
-        puts("banane2");
         char* pos = (char*)malloc(sizeof(char));
         if (pos = NULL){
             shutdown(th.dSC,2);
             perror("erreur allocation pos\n");
             pthread_exit(0);
         }
-        puts("banane3");
         pos = strchr(args.pseudo,' ');
         if (strlen(args.pseudo)> 0 && args.pseudo[0] != ' '){ //vérifie si le premier caractère n'est pas un espace
             if (pos != NULL){ //propriété de la fonction strchr renvoie NULL si il n'y a pas le caratère demandé
@@ -365,13 +350,11 @@ void* choixPseudo(void* args_thread){
                 continu = false;
             }
         }
-        puts("banane4");
         if(send(th.dSC,&continu, sizeof(bool), 0) <= 0){
             shutdown(th.dSC,2);
             perror("erreur envoie continu\n");
             pthread_exit(0);
         }
-        puts("banane5");
     }
 
 
