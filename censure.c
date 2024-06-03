@@ -18,10 +18,11 @@ int forbiddenWordsCount = 0;
 const char* joliWords[MAX_FORBIDDEN_WORDS];
 int joliWordsCount = 0;
 
-// Fonction pour censurer les insultes dans le message
-// Fonction pour censurer les insultes dans le message
-// Fonction pour censurer les insultes dans le message
-// Fonction pour censurer les insultes dans le message
+/**
+ * @brief Fonction pour censurer les insultes dans le message
+ * @param message le message du client
+ * @return renvoie rien, mais modifie directement le message
+*/
 void censorMessage(char* message) {
     char* token;
     char* rest = message;
@@ -61,7 +62,12 @@ void censorMessage(char* message) {
 
 
 
-// Fonction pour charger les mots interdits à partir d'un fichier
+/**
+ * @brief charge les mots qui sont censuré
+ * @param filename le nom du fichier ou se trouve les fichier censuré
+ * @param words la variable global ou on stocke les mots banni
+ * @param maxWords le nombre de mot max banni
+*/
 void loadForbiddenWords(const char* filename, const char** words, int maxWords) {
     FILE* file = fopen(filename, "r");
     if (file == NULL) {
@@ -88,7 +94,12 @@ void loadForbiddenWords(const char* filename, const char** words, int maxWords) 
     forbiddenWordsCount = count;
 }
 
-// Fonction pour charger les mots "jolis" à partir d'un fichier
+/**
+ * @brief charge les mots qui remplace les mots censuré
+ * @param filename le nom du fichier ou se trouve les fichier mot joli
+ * @param words la variable global ou on stocke les mots joli
+ * @param maxWords le nombre de mot max joli
+*/
 void loadJoliWords(const char* filename, const char** words, int maxWords) {
     FILE* file = fopen(filename, "r");
     if (file == NULL) {
@@ -115,7 +126,10 @@ void loadJoliWords(const char* filename, const char** words, int maxWords) {
     joliWordsCount = count;
 }
 
-// Fonction pour remplacer les mots interdits par des mots "jolis"
+/**
+ * @brief fonction qui remplace les mots interdits par les mots jolie
+ * @param message message a censurer
+*/
 void replaceForbiddenWords(char* message) {
     for (int i = 0; i < forbiddenWordsCount; i++) {
         char* pos = strstr(message, forbiddenWords[i]);

@@ -38,7 +38,10 @@ struct args_fichier {
     int a; //0 pour sendFile, 1 pour getFile
 };
 
-//Fonction qui prend un paramètre un signal et qui stop le programme proprement
+/**
+ * @brief fonction qui arrête le programme en coupant la communication
+ * @param n nécessaire pour l'ajouter au signal mais inutile ici
+*/
 void ArretForce(int n) {
     printf("\33[2K\r");
     printf("Coupure du programme\n");
@@ -48,8 +51,10 @@ void ArretForce(int n) {
     exit(0);
 }
 
-//permet de choisir le fichier dans son dossier afin de lancer le transfert 
-//renvoie le nom du fichier transféré
+/**
+ * @brief fonction qui permet de choisir un fichier dans file_client et lance l'envoie du fichier
+ * @return renvoie le nom du fichier choisi
+*/
 char* Interface_choix_fichier_sendFile() {
         int file_count;
         char** filenames = getFileInFolder("./file_client",&file_count);
@@ -76,7 +81,10 @@ char* Interface_choix_fichier_sendFile() {
         }
     }
 
-//Permet de choisir le fichier dans le serveur afin de lancer le transfert
+/**
+ * @brief fonction qui permet de choisir un fichier dans file_client et lance la réception du fichier
+ * @return renvoie le nom du fichier choisi
+*/
 void Interface_choix_fichier_getFile(int dSF) {
     int file_count;
     int err = recv(dSF,&file_count,sizeof(int),0);
@@ -124,8 +132,10 @@ void Interface_choix_fichier_getFile(int dSF) {
     }
 }
 
-//thread qui permet d'éxecuter la commande soit sendFile, soit getFile
-//il crée un socket et se connecte au client 
+/**
+ * @brief fonction qui permet de lancer getFile ou sendFile (démarrage du socket avec acceptation des clients)
+ * @param args void* car fonction passé en paramètre d'un phtread_create mais est retransformé en int qui est soit 0, soit 1
+*/
 void* thread_fichier(void* args) {
 
     int choix = *((int*)args);
@@ -163,9 +173,13 @@ void* thread_fichier(void* args) {
     } 
 }
 
-//Fonction de lecture des messages et affiche les messages reçu des autres clients
-//Entrée : le socket du serveur, le booléen qui gère l'exécution des deux threads
-//Sortie : renvoie rien, affiche le message
+/**
+ * @brief Fonction de lecture des messages et affiche les messages reçu des autres clients
+ * @param dS le socket du serveur
+ * @param continu le booléen qui gère l'exécution des deux threads
+ * @param pseudo string contenant le pseudo de l'utilisateur
+*/
+
 bool lecture(int dS, bool* continu,char* pseudo){ 
     bool res = true;
     int taille;
@@ -180,23 +194,26 @@ bool lecture(int dS, bool* continu,char* pseudo){
             res = false;
         }
         else {
-            //pthread_mutex_lock(&M1); //on bloque l'accès au booléen car il peut être changé pendant la lecture
             if (*continu){
                 printf("\33[2K\r");
                 printf("%s\n",msg);
                 printf("%s : ", pseudo);
                 setbuf(stdout, NULL);
             }
-            //pthread_mutex_unlock(&M1); //on réouvre l'accès
         }
         free(msg);
     }
     return res;
 }
 
-//Fonction qui permet l'envoie des messages par l'utlisateur
-//Entrée : le socket du serveur, le message
-//Sortie : un booléen si il reçoit "fin" alors false, sinon true 
+/**
+ * @brief fonction qui permet l'envoie des messages par l'utilisateur
+ * @param dS le socket du serveur
+ * @param msg le message
+ * @param continu le booléen qui permet l'éxecution des deux threads
+ * @param pseudo le pseudo de l'utilisateur
+ * @return renvoie un booléen, renvoie false si on écrit /quitter ou /fermeture
+*/
 bool envoie(int dS, char** msg,bool* continu, char* pseudo){
     bool res = true;
     //pthread_mutex_lock(&M1);
@@ -244,9 +261,10 @@ bool envoie(int dS, char** msg,bool* continu, char* pseudo){
     return false;
 }
 
-//Fonction qui permet de réceptionner tout les messages
-//Entrée : une structure qui sert d'argument pour que la fonction passe dans le thread et reçoit les données qui lui sont utiles
-//Sortie : renvoie rien, gère la reception des messages
+/**
+ * @brief Fonction qui permet de receptionner tout les messages
+ * @param args_threads une structure donner en argument d'un pthread donc void* qui permet de récupérer le pseudo ou le dS
+*/
 void* reception(void* args_thread) {
     struct Args_Thread args = *((struct Args_Thread*)args_thread); //récupère les arguments
     bool continu = *(args.continu);
@@ -262,9 +280,10 @@ void* reception(void* args_thread) {
     pthread_exit(EXIT_SUCCESS);
 }
 
-//Fonction qui envoie les messages 
-//Entrée : une structure qui sert d'argument pour que la fonction passe dans le thread et reçoit les données qui lui sont utiles
-//Sortie : renvoie rien, gère l'envoie des messages
+/**
+ * @brief Fonction qui envoie les messages
+ * @param args_thread une structure qui sert d'argument pour que la fonction passe dans le thread et reçoit les donné qui lui sont utiles
+*/
 void* propagation(void* args_thread){
     sleep(1);
     char* msg = (char*)malloc(128*sizeof(char)); //alloue la taille du message (128 max car fgets à 128 max)
@@ -284,16 +303,17 @@ void* propagation(void* args_thread){
     free(msg);
     pthread_exit(EXIT_SUCCESS);
 }
-
-//Fonction qui permet a l'utilisateur de sélectionner son pseudo
-//Entrée : le socket du serveur
-//Sortie : renvoie rien, envoie le pseudo au serveur
+/**
+ * @brief Fonction qui permet a l'utilissateur de sélectionner son pseudo
+ * @param dS le socket du serveur
+*/
 char* choixPseudo(int dS){
     char* msg = (char*)malloc(16*sizeof(char)); //le message alloué a 16 max (taille du pseudo autorisé)
     bool continu = true;
 
     while(continu){
         printf("Choix de votre pseudo : "); 
+        setbuf(stdout, NULL);
         fgets(msg,16,stdin); //l'utilisateur écrit son pseudo
         char* pos = strchr(msg,'\n'); //cherche '\n' mis par défaut par fgets
         *pos = '\0'; 
@@ -319,8 +339,9 @@ char* choixPseudo(int dS){
 }
 
 //--------------------------------------main--------------------------------------------
-//Fonction principale du programme
-//pour lancer le programme il faut écrite : ./client "IP" "Port"
+/**
+ * @brief fonction principale du programme, pour lancer le programme il faut écrite : ./client "IP" "Port"
+*/
 int main(int argc, char* argv[]){
 
     signal(SIGINT, ArretForce);

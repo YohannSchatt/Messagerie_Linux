@@ -2,14 +2,21 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-//Fonction qui prend une adresse d'un string et met en premier caractère la fin de caractère
+/**
+ * @brief Fonction qui prend une adresse d'un string et met en premier caractère la fin de cractère
+ * @param msg le message a modifier
+ * @return la chaine est directement modifié
+*/
 void setMsgVoid(char** msg){
     *msg[0] = '\0';
 }
 
-//Fonction qui reçoit un message du client associé au socket donnée en paramètre et le met dans message qui sera transmit a la fonction envoyer
-//Entrée : le socket et le pointeur du message
-//Sortie : un Booléen qui précise si on continu la communication, et met à jour le message
+/**
+ * @brief Fonction qui reçoit un message du client associé
+ * @param dSC le socket 
+ * @param continu le booléen qui assure la continuité du thread
+ * @return un booléen qui précise si il continu la communication
+*/
 char* lecture(int dSC,bool* continu){
     bool res = true;
     int taille;
@@ -31,9 +38,11 @@ char* lecture(int dSC,bool* continu){
     return NULL;
 }
 
-//Fonction qui envoie le message donnée en paramètre avec le pseudo correspondant au client qu'on a en paramètre grâce au socket
-//Entrée : le socket, le message, et le pseudo
-//Sortie : renvoie rien, le message est envoyé
+/**
+ * @brief Fonction qui envoie le message donnée a un client
+ * @param dSC le socket du client a qui envoyer
+ * @param msg le message a envoyer
+*/
 void envoie(int dSC,char* msg){
     int taille = strlen(msg)+1;
     if(send(dSC, &taille, sizeof(int), 0) != -1){

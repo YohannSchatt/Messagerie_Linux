@@ -8,6 +8,12 @@
 #include "communication_serveur.c"
 #include "typeSalon.c"
 
+/**
+ * @brief Fonction qui concatène tout les éléments d'un tableau dans une même de caractère séparé de retour a la ligne
+ * @param tab le tableau des chaines de caractère a concatener
+ * @param taille la taille du tableau
+ * @return renvoie la chaine de caractère concaténé avec les retour a la ligne
+*/
 char* concatAllTab(char** tab,int taille){
     int taillemsg;
     for(int i = 0; i < taille ;i++){
@@ -27,6 +33,12 @@ char* concatAllTab(char** tab,int taille){
     return msg;
 }
 
+/**
+ * @brief concatène deux string entre eux en réallout l'espace
+ * @param c1 première string
+ * @param c2 deuxième string
+ * @return la chaine concaténé
+*/
 char* concat(char* c1, char* c2){
     char* res = malloc(sizeof(char)*(strlen(c1)+strlen(c2)+1));
     strcat(res,c1);
@@ -35,6 +47,11 @@ char* concat(char* c1, char* c2){
     return res;
 }
 
+/**
+ * @brief Fonction qui exécute la commande join, permet a l'utilisateur de changer de salon
+ * @param client l'id du client dans le tableau
+ * @param name le nom du salon
+*/
 void join(int client,char* name){
     int id_salon = getIdSalon(name);
     if (id_salon >= 0){
@@ -51,6 +68,11 @@ void join(int client,char* name){
     }
 }
 
+/**
+ * @brief Fonction qui exécute la commande /create
+ * @param client l'id du client dans le tableau des clients
+ * @param name le nom du salon a créer
+*/
 void create(int client, char* name){
     if(createSalon(name,client)){
         envoie(tabdSC[client].dSC,"Le salon est créé");
@@ -60,6 +82,11 @@ void create(int client, char* name){
     }
 }
 
+/**
+ * @brief Fonction qui exécute la commande /delete
+ * @param client l'id du client dans le tableau des clients
+ * @param name le nom du salon a supprimer
+*/
 void delete(int client, char* name){
     int id_salon = getIdSalon(name);
     pthread_mutex_lock(&M1);
@@ -68,6 +95,10 @@ void delete(int client, char* name){
     envoie(tabdSC[client].dSC,"Le salon est supprimé");
 }
 
+/**
+ * @brief Fonction qui exécute lz commande /getSalon, envoie tout les salons a l'utilisateur
+ * @param client l'id du client
+*/
 void getSalon(int client){
     pthread_mutex_lock(&M1); //bloque l'accès au tableau
     int nb = countNbSalon();
@@ -83,6 +114,11 @@ void getSalon(int client){
     free(str);
 }
 
+/**
+ * @brief fonction qui exécute la commande /connected, envoie les infos du salons a l'utilisateur
+ * @param client l'id du client dans le tableau client
+ * @param name le nom du salon
+*/
 void connected(int client,char* name){
     int id_salon = getIdSalon(name);
     pthread_mutex_lock(&M1); //bloque l'accès au tableau

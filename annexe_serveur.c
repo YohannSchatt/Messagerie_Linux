@@ -1,9 +1,12 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-//Fonction qui permet de récupérer le pseudo dans une commande
-//Entrée : l'adresse du msg de la commande, la position de l'espace juste devant le pseudo
-//Sortie : le pseudo de l'utilisateur 
+/**
+ * @brief Fonction qui permet de récupérer le pseudo dans une commande
+ * @param msg le message
+ * @param pos la position du début du pseudo
+ * @return renvoie le pseudo
+*/
 char* recup_pseudo(char* msg,int pos){
     char* pseudo = (char*)malloc(16*sizeof(char)); //taille max de 16 pour un pseudo
     int i = 0;
@@ -14,9 +17,12 @@ char* recup_pseudo(char* msg,int pos){
     return pseudo;
 }
 
-//Fonction qui permet de récupérer le pseudo dans une commande 
-//Entrée : l'adresse du msg de la commande, la position de l'espace juste devant le message
-//Sortie : le message écrit par l'utilisateur 
+/**
+ * @brief Fonction qui permet de récupérer le pseudo dans une commande
+ * @param msg la commande
+ * @param pos la position de l'espace juste devant le message a récupérer
+ * @return renvoie le message
+*/
 char* recup_message(char* msg, int pos){
     int count = 0;
     while(msg[pos+count] != '\0'){
@@ -29,6 +35,12 @@ char* recup_message(char* msg, int pos){
     return message;
 }
 
+/**
+ * @brief vérifie la commande si elle correspond bien
+ * @param msg_commande commande dans le message
+ * @param msg commande initial que le message doit respecter
+ * @return renvoie un booléen, true si c'est bien la bonne commande, false sinon
+*/
 bool verif_commande(char* msg_commande,char* msg){
     bool res = false;
     int i = 1; //on ne regarde pas le /
@@ -49,6 +61,12 @@ bool verif_commande(char* msg_commande,char* msg){
     return res;
 }
 
+/**
+ * @brief récupère le nom du salon dans le message
+ * @param msg le message 
+ * @param pos la position ou se situe le début du nom du salon
+ * @return renvoie le nom du salon
+*/
 char* recupNomSalon(char* msg,int pos){
     int count = 0;
     while(msg[pos+count] != ' ' && msg[pos+count] != '\0'){
@@ -60,10 +78,13 @@ char* recupNomSalon(char* msg,int pos){
     }
     return nom;
 }
-
-//Cette fonction fusionne le pseudo de la personne concerné, et le message principale avec des caractères qui les joints
-//Entrée : trois String (un pseudo, un message, et un la jointure)
-//Sortie : renvoie l'adresse d'un String avec comme forme "pseudo jointure message"
+/**
+ * @brief Fonction qui fusionne le pseudo de la personne concerné, et le message principale avec des caractère qui les joints
+ * @param msg le message
+ * @param pseudo le pseudo
+ * @param jointure les caractères de jointure
+ * @return le message concaténé
+*/
 char* creation_msg_serveur(char* msg, char* pseudo,char* jointure) {
     int taillemsg = strlen(msg); 
     int taillepseudo = strlen(pseudo);
@@ -75,13 +96,22 @@ char* creation_msg_serveur(char* msg, char* pseudo,char* jointure) {
     return message;
 }
 
-//Cette fonction fusionne le pseudo de l'utilisateur donné en paramètre et le message donné aussi en paramètre
-//Entrée : deux String (un pseudo et un message)
-//Sortie : renvoie l'adresse d'un String avec comme forme "pseudo : message"
+/**
+ * @brief Fonction qui fusionne le pseudo de l'utilisateur donné en paramètre et le message donné en paramètre
+ * @param msg le message
+ * @param pseudo le pseudo de l'originaire du message
+ * @return renvoie la chaine concaténé
+*/
 char* creation_msg_client_public(char* msg, char* pseudo) {
     return creation_msg_serveur(msg,pseudo," : ");
 }
 
+/**
+ * @brief Fonction qui fusionne le pseudo de l'utilisateur donné en paramètre et le message donné en paramètre
+ * @param msg le message
+ * @param pseudo le pseudo de l'originaire du message
+ * @return renvoie la chaine concaténé
+*/
 char* creation_msg_client_prive(char* msg, char* pseudo) {
     return creation_msg_serveur(msg,pseudo," (Message privé) : ");
 }
