@@ -11,13 +11,21 @@
 #define TAILLE_BUF 256 //taille du buffer pour l'envoie du fichier
 #define MAX_FILE 200 //limite max de personne sur le serveur
 
-//Fonction qui met fin a la communication et au thread qui a utilisé cette fonction
+/**
+ * @brief Fonction qui met fin a la communication lors de l'envoie d'un fichier (si problème alors la lancer)
+ * @param dSF le socket a couper
+*/
 void finFichier(int dSF){
     shutdown(dSF,2);
     pthread_exit(0);
 }
 
-//Permet d'obtenir tout les noms de fichier dans un directory
+/**
+ * @brief Permet d'obtenir tout les noms de fichier dans un répertoire
+ * @param file le répertoire
+ * @param file_count le nombre de fichier trouvé 
+ * @return renvoie la chaine de caractère pour l'utilisateur 
+*/
 char** getFileInFolder(char* file, int* file_count){
     struct dirent *entry;
     DIR *dp;
@@ -40,17 +48,26 @@ char** getFileInFolder(char* file, int* file_count){
     }
 }
 
-//Permet de créer le chemin pour que le programme sait ou trouver le fichier a envoyer
+/**
+ * @brief récupère la chaine correspondant au chemin pour le programme pour accéder au fichier
+ * @param file le nom du répertoire
+ * @param name le nom du fichier
+ * @return la chaine de caractère du répertoire
+*/
 char* getPath(char* file,char* name){
     char* path = (char*)malloc(sizeof(char)*(strlen(file)+strlen(name)+1));
     path[0] = '\0'; //pour éviter de modifier des parties de mémoire ou on a pas accès
     strcat(path,file);
     strcat(path,name);
-    printf("%s\n",path);
     return path;
 }
 
-//Fonction qui reçoit et crée le fichier dans le file passé en paramètre 
+/**
+ * @brief Fonction qui permet de recevoir un fichier envoyé par sendFichier
+ * @param dSF le socket de celui qui envoie
+ * @param file le fichier répertoire ou recevoir le fichier
+ * @return crée le fichier avec les données du fichier dans le répertoire
+*/
 void recvFichier(int dSF,char* file){
     printf("%d\n",dSF);
     int taille_name;
@@ -94,7 +111,12 @@ void recvFichier(int dSF,char* file){
     pthread_exit(0);
 }
 
-//Fonction qui envoie le fichier correspondant au nom et au directory donné en paramètre
+/**
+ * @brief Fonction qui permet l'envoie de fichier pour la fonction recvFichier
+ * @param nameFile le nom du fichier a envoyer
+ * @param file le répertoire ou se trouve le fichier
+ * @param dSF le socket a qui envoyer
+*/
 void* sendFichier(char* nameFile,char* file,int dSF){
     printf("%d\n",dSF);
     FILE* fic;

@@ -11,58 +11,63 @@
 #include <semaphore.h>
 #include "file.c"
 #include "annexe_serveur.c"
-#include "communication_serveur.c"
-#include "serveur.h"
-
-#define NB_MAX_PERSONNE 100 //limite max de personne sur le serveur
-#define MAX_FILE 200 //limite max de personne sur le serveur
+#include "CommandeSalon.c"
 
 int  NB_PERSONNE_ACTUELLE = 0;//compteur du nombre de personne connecté
 int PORT;
- 
-pthread_mutex_t M1 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au tableau des sockets clients
-pthread_mutex_t M2 = PTHREAD_MUTEX_INITIALIZER; //mutex qui protège l'accès au nombre  des sockets clients
+
 
 sem_t semaphore; //semaphore qui sert a la file d'attente
 
-struct client tabdSC[NB_MAX_PERSONNE+2]; //tableau des sockets des clients
-
-//Fonction qui prend en paramètre un socket et l'id dans le tableau
-//elle va supprimer le client du tableau puis fermer le socket
-//Entrée : le socket et l'id
-//Sortie : tableau des sockets modifié
+/**
+ * @brief supprime le client du tableau et ferme son socket
+ * @param dSC le socket a qui couper la connection
+ * @param id l'id du client dans le tableau
+*/
 void fin_connexion(int dSC,int id) {
-
+    puts("banane14");
     pthread_mutex_lock(&M1); //empêche le tableau d'être accédé pour éviter problème d'exclusion mutuelle
     tabdSC[id].dSC = -1;
     pthread_mutex_unlock(&M1); //reouvre le tableau
-
+    puts("banane13");
     pthread_mutex_lock(&M2); //reouvre le nombre de personne
     NB_PERSONNE_ACTUELLE--;
     pthread_mutex_unlock(&M2); //empêche le nombre de personne présente d'être accédé pour éviter problème d'exclusion mutuelles
-
     shutdown(dSC,2); //ferme le socket
-
+    RemoveUserSalon(tabdSC[id].id_salon,id);
     sem_post(&semaphore);
     printf("fermeture\n");
 }
 
-//Fonction qui envoie message donné en paramètre a tout le monde sauf le client qui a crée le message 
-//Entrée : le socket du client qui envoie le message
-//Sortie : renvoie rien, a envoyé le message à tout le monde sauf le client a l'origine du message
-void envoie_everyone_client(int dSC,char* msg){
+/**
+ * @brief Fonction qui envoie le message donné en paramètre a tout le monde  du salon sauf le client qui crée le message
+ * @param id l'id du client qui envoie le message
+ * @param msg le message a envoyer
+*/
+void envoie_everyone_client(int id,char* msg){
     pthread_mutex_lock(&M1); //on bloque l'accès au tableau
-    for(int i = 0;i<NB_MAX_PERSONNE;i++) {
-        if (tabdSC[i].dSC != -1 && dSC != tabdSC[i].dSC) { //si le socket existe et est différent de celui de notre client alors on envoie le message
-            envoie(tabdSC[i].dSC, msg);
+    int id_salon = tabdSC[id].id_salon;
+    puts("banane16");
+    int* ClientInSalon = getSalonUser(id_salon);
+    puts("banane17");
+    for(int i = 0;i<NB_MAX_PERSONNE_SALON;i++) {
+        if (ClientInSalon[i] != -1 && id != ClientInSalon[i] && tabdSC[ClientInSalon[i]].dSC > 0) { //si le socket existe et est différent de celui de notre client alors on envoie le message
+            puts(tabdSC[ClientInSalon[i]].pseudo);
+            envoie(tabdSC[ClientInSalon[i]].dSC, msg);
         }
     }
     pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
 }
 
-//Fonction utilisé uniquement par le serveur qui envoie un message donné en paramètre a tout le monde 
-//Entrée : un String (le message)
-//Sortie : renvoie rien, envoie le message à tout le monde
+void errorsocket(int id){
+    tabdSC[id].dSC = -1;
+    RemoveUserSalon(tabdSC[id].id_salon,id);
+}
+
+/**
+ * @brief Fonction utilisé uniquement par le serveur qui envoie un message donné en paramètre a tout le monde
+ * @param msg le message a envoyer
+*/
 void envoie_everyone_serveur(char* msg){
     pthread_mutex_lock(&M1); //on bloque l'accès au tableau
     for(int i = 0;i<NB_MAX_PERSONNE;i++) {
@@ -73,29 +78,35 @@ void envoie_everyone_serveur(char* msg){
     pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
 }
 
-//fonction qui arrête le programme et coupe tout les sockets
+/**
+ * @brief Fonction qui arrête le programme et coupe tout les sockets
+ * @param n inutile, sert juste pour le mettre dans un signal
+*/
 void ArretForce(int n) {
     printf("\33[2K\r");
     printf("Coupure du programme\n");
     envoie_everyone_serveur("fermeture du serveur");
     pthread_mutex_lock(&M1);
-    for (int i = 0;i<NB_MAX_PERSONNE+1;i++) {
-        shutdown(tabdSC[i].dSC,2);
+    for (int i = 0;i<NB_MAX_PERSONNE;i++) {
+        if(tabdSC[i].dSC != -1){
+            shutdown(tabdSC[i].dSC,2);
+        }
     }
     pthread_mutex_unlock(&M1);
     exit(0);
 }
 
-//fonction qui permet d'envoyer un message privé a un autre client
+/**
+ * @brief Fonction qui permet l'envoie d'un message privé a un client 
+ * @param msg le message a envoyer
+ * @param pseudo le pseudo du client qui doit le recevoir
+ * @param args le struct du client qui envoie le message
+*/
 void envoie_prive_client(char* msg,char* pseudo,struct mem_Thread args){
     int i = 0;
     bool envoye = false;
     pthread_mutex_lock(&M1); //on bloque l'accès au tableau
-    printf("%s\n", pseudo);
     while (i<NB_MAX_PERSONNE && !envoye){
-        if (tabdSC[i].dSC != -1) {
-            printf("%s\n",tabdSC[i].pseudo);
-        }
         if(tabdSC[i].dSC != -1 && strcmp(tabdSC[i].pseudo,pseudo) == 0){
             envoie(tabdSC[i].dSC,msg);
         }
@@ -104,7 +115,10 @@ void envoie_prive_client(char* msg,char* pseudo,struct mem_Thread args){
     pthread_mutex_unlock(&M1); //on redonne l'accès au tableau
 }
 
-// Ajouter cette fonction pour envoyer le contenu de manuel.txt
+/**
+ * @brief commande qui permet d'envoyer le manuel a l'utilisateur
+ * @param dSC le socket du client a qui envoyer
+*/
 void envoyer_manuel(int dSC) {
     FILE *fichier;
     char ligne[256]; // Taille maximale d'une ligne du manuel
@@ -114,19 +128,26 @@ void envoyer_manuel(int dSC) {
         printf("Erreur : Impossible d'ouvrir le fichier manuel.txt\n");
     } else {
         // Envoyer le contenu du fichier ligne par ligne
+        pthread_mutex_lock(&M1);
         while (fgets(ligne, sizeof(ligne), fichier) != NULL) {
             envoie(dSC, ligne);
         }
+        pthread_mutex_unlock(&M1);
         fclose(fichier);
     }
 }
 
-//cette fonction permet en fonction du message reçu d'éxecuter une action particulière
+/**
+ * @brief Fonction qui prend le message et décide ce qu'il doit faire avec
+ * @param msg le message du client
+ * @param args les infos du client qui a envoyé le message
+ * @return un booléen, true si le thread doit se couper, false sinon
+*/
 bool protocol(char *msg, struct mem_Thread args){
     bool res = true;
     if (msg[0] == '@'){
         char* pseudo_client_recevoir = recup_pseudo(msg, 1);
-        char* contenu_msg = recup_message(msg,strlen(pseudo_client_recevoir)+2);
+        char* contenu_msg = recup_message(msg,strlen(pseudo_client_recevoir)+1);
         char* message_complet = creation_msg_client_prive(contenu_msg,args.pseudo);
         envoie_prive_client(message_complet,pseudo_client_recevoir,args);
     }
@@ -140,32 +161,84 @@ bool protocol(char *msg, struct mem_Thread args){
         else if (strcmp("/fermeture",msg) == 0){
             ArretForce(0);
         }
+        else if (verif_commande("/join",msg)){
+            char* nom = recupNomSalon(msg,6);
+            join(args.id,nom);
+        }
+        else if (verif_commande("/create",msg)){
+            char* nom = recupNomSalon(msg,8);
+            create(args.id,nom);
+        }
+        else if (verif_commande("/delete",msg)){
+            char* nom = recupNomSalon(msg,8);
+            delete(args.id,nom);
+        }
+        else if (verif_commande("/getSalon",msg)){
+            getSalon(args.id);
+        }
+        else if (verif_commande("/connected",msg)){
+            char* nom = recupNomSalonUser(args.id);
+            connected(args.id,nom);
+        }
+        else if (verif_commande("/serveur",msg)){
+            serveur(args.dSC);
+        }
+        else if (verif_commande("/kick",msg)){
+            char* nom = recupNomSalon(msg,6); //utilisation de la même fonction de récupération du salon pour le speudo comme c'est le même principe
+            int i = 0;
+            bool found = false;
+            pthread_mutex_lock(&M1);
+            if(strcmp(nom,args.pseudo) == 0){
+                envoie(tabdSC[args.id].dSC, "tu es maso ?");
+                pthread_mutex_unlock(&M1);
+            }
+            else {
+                while(i<NB_MAX_PERSONNE && !found){
+                    if(strcmp(nom,tabdSC[i].pseudo) == 0){
+                        found = true;
+                        envoie(tabdSC[i].dSC,"Vous êtes kick !");
+                        int rc = pthread_cancel(tabdSC[i].thread);
+                        if (rc) {
+                            printf("Erreur : impossible d'annuler le thread %d, code d'erreur: %d\n",i,rc);
+                        }
+                        pthread_mutex_unlock(&M1);
+                        fin_connexion(tabdSC[i].dSC,i);
+                    }
+                    i++;
+                }
+                if(!found){
+                    envoie(tabdSC[args.id].dSC,"l'utilisateur n'existe pas");
+                    pthread_mutex_unlock(&M1);
+                }
+            }
+        }
         else {
             envoie(args.dSC, "Commande inconnu faite /help pour plus d'information");
         }
     }
     else {
         char* message_complet = creation_msg_client_public(msg,args.pseudo);
-        envoie_everyone_client(args.dSC,message_complet);
+        envoie_everyone_client(args.id,message_complet);
     }
     return res;
 }
 
-//Cette fonction gère la lecture du message d'un client qui sera ensuite envoyé a tout les clients
-//Entrée : une struct d'argument pour le thread, contenant le socket du client, et le pseudo et l'id dans le tableau des sockets client
-//Sortie : renvoie rien, mais assure la liaison entre les clients tant que le client du socket ne coupe pas la communication
+/**
+ * @brief Fonction qui gère la lecture du message d'un client qui sera ensuite envoyé a tout les clients
+ * @param args struct d'argument pour le thread, contenant le socket du client, le pseudo et l'id du client dans le tableau
+*/
 void lecture_envoie(struct mem_Thread args) {
     bool continu = true; //booléen qui va assurer la boucle tant que la communication n'est pas coupé 
-    char* msgrecu = (char*)malloc(sizeof(char));
-    msgrecu[0] ='\0'; 
     while (continu) {
-        continu = lecture(args.dSC, &continu); //cas d'erreur de l'envoi, change la valeur de continu
-        if (continu){
+        char* msgrecu = lecture(args.dSC, &continu); //cas d'erreur de l'envoi, change la valeur de continu
+        if (continu && msgrecu != NULL){
             continu = protocol(msgrecu,args);
         }
+        else {
+            continu = false;
+            errorsocket(args.id);
+        }
     }
-    free(msgrecu);
-
     //message de fin de communication
 
     char* msgcomplet = creation_msg_serveur("a quitté le serveur",args.pseudo," ");
@@ -173,9 +246,11 @@ void lecture_envoie(struct mem_Thread args) {
     fin_connexion(args.dSC,args.id); //si communication coupé alors on mets fin au socket
 }
 
-//Fonction qui a pour but d'initialiser le socket de connexion initial
-//Entrée : Le port donnée en argument du serveur quand on lance le programme
-//Sortie : le socket inital de communication
+/**
+ * @brief Fonction qui a pour but d'initialiser le socket de connexion initial
+ * @param port le port donnée en argument du serveur quand on lance le programme
+ * @return le socket initial de communication
+*/
 int init_ouverture_connexion(int port) {
     
     int dS = socket(PF_INET, SOCK_STREAM, 0); //crée le socket en TCP
@@ -209,20 +284,29 @@ int init_ouverture_connexion(int port) {
     }
 }
 
-//fonction qui vérifie si le pseudo n'est pas utilisé
+/**
+ * @brief Fonction qui vérifie que le pseudo donné en paramètre n'est pas déjà pris
+ * @param pseudo a verifier
+ * @return booléen, true si le pseudo n'est pas pris, false sinon
+*/
 bool verif_pseudo(char* pseudo){
     bool res = true;
     int i = 0;
+    pthread_mutex_lock(&M1);
     while (i<NB_MAX_PERSONNE && res){
         if(tabdSC[i].dSC != -1 && strcmp(tabdSC[i].pseudo,pseudo) == 0){
             res = false;
         }
         i++;
     }
+    pthread_mutex_unlock(&M1);
     return res;
 }
 
-//fonction qui permet a l'utilisateur de prendre un pseudo valide
+/**
+ * @brief Fonction qui permet a l'utilisateur de prendre un pseudo
+ * @param args_thread donné qui permet de récuperer le socket du client (void* car argument phtread_create)
+*/
 void* choixPseudo(void* args_thread){
     struct Args_Thread th = *((struct Args_Thread*)args_thread); //le socket client
 
@@ -232,11 +316,31 @@ void* choixPseudo(void* args_thread){
 
     bool continu = true;
 
+    int err;
+
     while(continu){
-        recv(th.dSC,&taille, sizeof(int), 0); //reçoit la taille du message
-        args.pseudo = (char*)malloc(taille*sizeof(char)); 
-        recv(th.dSC, args.pseudo, taille, 0); //reçoit le message
+        if(recv(th.dSC,&taille, sizeof(int), 0) <= 0){ //reçoit la taille du message
+            shutdown(th.dSC,2);
+            perror("erreur recv taille\n");
+            pthread_exit(0);
+        }
+        args.pseudo = (char*)malloc(taille*sizeof(char));
+        if (args.pseudo == NULL){
+            shutdown(th.dSC,2);
+            perror("erreur allocation mémoire pseudo\n");
+            pthread_exit(0);
+        }
+        if(recv(th.dSC, args.pseudo, sizeof(char)*taille, 0) <= 0){ //reçoit le message
+            shutdown(th.dSC,2);
+            perror("erreur réception pseudo\n");
+            pthread_exit(0);
+        }
         char* pos = (char*)malloc(sizeof(char));
+        if (pos = NULL){
+            shutdown(th.dSC,2);
+            perror("erreur allocation pos\n");
+            pthread_exit(0);
+        }
         pos = strchr(args.pseudo,' ');
         if (strlen(args.pseudo)> 0 && args.pseudo[0] != ' '){ //vérifie si le premier caractère n'est pas un espace
             if (pos != NULL){ //propriété de la fonction strchr renvoie NULL si il n'y a pas le caratère demandé
@@ -246,7 +350,11 @@ void* choixPseudo(void* args_thread){
                 continu = false;
             }
         }
-        send(th.dSC,&continu, sizeof(bool), 0);
+        if(send(th.dSC,&continu, sizeof(bool), 0) <= 0){
+            shutdown(th.dSC,2);
+            perror("erreur envoie continu\n");
+            pthread_exit(0);
+        }
     }
 
 
@@ -254,17 +362,24 @@ void* choixPseudo(void* args_thread){
     args.id = th.id; //la position du socket du client dans le tableau
     args.dSC = th.dSC;
 
-    tabdSC[args.id].dSC = args.dSC;
-    tabdSC[args.id].pseudo = args.pseudo; 
+    pthread_mutex_lock(&M1);    
 
+    tabdSC[args.id].dSC = args.dSC;
+    tabdSC[args.id].pseudo = args.pseudo;
+
+    pthread_mutex_unlock(&M1); 
+    puts("banane6");
     char* msgcomplet = creation_msg_serveur("a rejoint le serveur",args.pseudo," ");
     envoie_everyone_serveur(msgcomplet);
-
+    puts("banane7");
     lecture_envoie(args); //le client va pouvoir commencer a communiquer
-    pthread_exit(0);
 }
 
-//Crée un socket qui sera sur un port donnée en paramètre afin de recevoir des clients
+/**
+ * @brief initie le socket pour l'envoie des fichiers
+ * @param port le port qui permet l'envoie des fichiers ou le socket sera initialisé
+ * @return le socket initial des communications des fichiers
+*/
 int initSocketFile(int port){
     int dSF = socket(PF_INET, SOCK_STREAM, 0); //crée le socket en TCP
     if (dSF == -1){
@@ -297,7 +412,10 @@ int initSocketFile(int port){
     }
 }
 
-//permet d'envoyer tout les fichiers au client afin qu'ils choisissent et reçoit la réponse du client
+/**
+ * @brief qui permet de choisir et d'afficher les fichier disponibles dans le serveur a récupérer
+ * @param dSFC le socket du serveur pour les fichiers
+*/
 char* Interface_choix_fichier_getFile(int dSFC) {
     int file_count;
     char** filenames = getFileInFolder("./file_serveur", &file_count);
@@ -343,13 +461,19 @@ char* Interface_choix_fichier_getFile(int dSFC) {
     }
 }
 
-//lance la reception de fichier du serveur
+/**
+ * @brief Lance la commande getFile, pour récuperer un fichier au serveur
+ * @param args le dSFC du client
+*/
 void* getFile(void* args){
     int dSFC = *((int*)args);
     recvFichier(dSFC,"./file_serveur/");
 }
 
-//lance l'envoie du fichier au client
+/**
+ * @brief Lance la commande sendFile, pour envoyer un fichier au serveur
+ * @param args le dSFC du client
+*/
 void* sendFile(void* args){
     int dSFC = *((int*)args);
     char* nameFile = Interface_choix_fichier_getFile(dSFC);
@@ -359,7 +483,10 @@ void* sendFile(void* args){
     sendFichier(nameFile,"./file_serveur/",dSFC);
 }
 
-//fonction qui a pour but d'éxecuter le thread de sendFile ou de getFile
+/**
+ * @brief Lance le thread de communication pour que le client se connecte et lance soit sendFile, soit getFile
+ * @param args le socket initial du serveur file
+*/
 void* thread_file(void * args){
 
     int dSF = *((int*)args);
@@ -394,9 +521,10 @@ void* thread_file(void * args){
 }
 
 
-//initialise la communication entre le client et le serveur
-//Entrée : le socket d'écoute
-//Sortie : renvoie rien, lance la fonction du pseudo avec le socket créé si la communication peut s'opérer
+/**
+ * @brief lance la connexion pour que le client puisse arriver sur le serveur
+ * @param args le socket du serveur
+*/
 void* init_connexion(void* args) {
 
     int dS = (*(int*)args);
@@ -409,11 +537,12 @@ void* init_connexion(void* args) {
     socklen_t lg = sizeof(struct sockaddr_in) ; 
 
     sem_init(&semaphore, 0, NB_MAX_PERSONNE); 
+    initSalon();
+    createSalon("main",-1); //création du salon principale qui appartient a personne
     int a = 1;
     while(true){ //continue a s'éxecuter 
         sem_wait(&semaphore);
         int dSC = accept(dS, (struct sockaddr*) &aC,&lg); //crée le socket client
-        printf("%d\n",dSC);
         if (dSC == -1) { //gestion de l'erreur de accept
             printf("problème de connexion\n");
         }
@@ -433,7 +562,6 @@ void* init_connexion(void* args) {
                 i = (i + 1)%NB_MAX_PERSONNE;
             }
 
-            tabdSC[i].thread = thread;
             tabdSC[i].id = i;
             pthread_mutex_unlock(&M1); //on redonne l'accès
 
@@ -441,12 +569,18 @@ void* init_connexion(void* args) {
             args.dSC = dSC;
             args.id = i;
 
-            pthread_create(&thread, NULL, choixPseudo,(void*)&args); //on lance le thread du client
+            if (!AppendUserSalon(0,args.id)){ //le salon main sera toujours sur 0
+                printf("erreur ajout a un salon\n");
+            }
+
+            pthread_create(&tabdSC[i].thread, NULL, choixPseudo,(void*)&args); //on lance le thread du client
         }
     }
 }
 
-//main de la fonciton
+/**
+ * @brief programme principale qui lance le serveur communication et le serveur fichier
+*/
 int main(int argc, char *argv[]) { 
 
     printf("Début programme\n");
